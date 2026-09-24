@@ -1,12 +1,128 @@
 <title>崩界 HOUKAI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
-  :root { color-scheme: dark; --ink: #e9e4da; --dim: #8d877c; --bg: #050505; }
+  :root {
+    color-scheme: dark;
+    --ink: #070708; --bone: #eae4d8; --dim: #8a857c; --line: #2a2b2f; --steel: #16171a;
+    --ember: #ff6a2b; --ion: #62d6ff;
+    --display: "Shippori Mincho B1", "Hiragino Mincho ProN", "Yu Mincho", "Noto Serif JP", serif;
+    --ui: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", "Noto Sans JP", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
   html, body { height: 100%; }
-  body { margin: 0; background: var(--bg); color: var(--ink); overflow: hidden; }
-  #stage { position: fixed; inset: 0; }
+  body { margin: 0; background: var(--ink); color: var(--bone); font-family: var(--ui); overflow: hidden; -webkit-font-smoothing: antialiased; }
+  #stage { position: fixed; inset: 0; background: var(--ink); }
   #stage canvas { display: block; width: 100%; height: 100%; }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 2px solid var(--ion); outline-offset: 2px; }
+
+  /* title / loading overlay */
+  #intro { position: fixed; inset: 0; display: grid; align-items: end; padding: 0 clamp(16px, 6vw, 88px) clamp(28px, 9vh, 96px);
+    background: linear-gradient(90deg, rgba(7,7,8,0.92) 0%, rgba(7,7,8,0.55) 42%, rgba(7,7,8,0) 75%), linear-gradient(0deg, rgba(7,7,8,0.8), rgba(7,7,8,0) 55%);
+    transition: opacity 0.9s ease; z-index: 5; }
+  #intro.gone { opacity: 0; pointer-events: none; }
+  .titleblock { max-width: 34rem; display: grid; gap: 1.1rem; border-left: 1px solid rgba(234,228,216,0.28); padding-left: clamp(14px, 2.4vw, 28px); }
+  .kicker { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.28em; text-transform: uppercase; color: var(--dim); }
+  h1 { margin: 0; font-family: var(--display); font-weight: 800; font-size: clamp(4.2rem, 13vw, 9.5rem); line-height: 0.92; letter-spacing: 0.04em; text-wrap: balance; }
+  h1 .latin { display: block; font-family: var(--mono); font-weight: 600; font-size: clamp(0.8rem, 1.6vw, 1.05rem); letter-spacing: 0.9em; color: var(--dim); margin-top: 0.9rem; }
+  .logline { margin: 0; max-width: 30rem; font-size: 0.98rem; line-height: 1.75; color: #c9c2b5; }
+  .duel { display: flex; gap: 1.4rem; flex-wrap: wrap; font-size: 0.82rem; color: var(--dim); }
+  .duel b { font-weight: 700; color: var(--bone); margin-right: 0.35em; }
+  .duel .k b { color: var(--ion); } .duel .g b { color: var(--ember); }
+  .actions { display: flex; flex-wrap: wrap; gap: 0.8rem 1.2rem; align-items: center; }
+  #play { display: inline-flex; align-items: center; gap: 0.7rem; padding: 0.85rem 1.5rem 0.85rem 1.2rem; border: 1px solid var(--bone); background: var(--bone); color: var(--ink); font-weight: 700; letter-spacing: 0.12em; cursor: pointer; }
+  #play:disabled { background: transparent; color: var(--dim); border-color: var(--line); cursor: progress; }
+  #play:not(:disabled):hover { background: #fff; }
+  #play svg { width: 0.9rem; height: 0.9rem; }
+  .opts { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; font-size: 0.8rem; color: var(--dim); }
+  .opts label { display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; }
+  .opts select { background: var(--steel); color: var(--bone); border: 1px solid var(--line); padding: 0.2rem 0.4rem; font: inherit; }
+  .opts input { accent-color: var(--bone); }
+  #progress { display: grid; gap: 0.45rem; font-family: var(--mono); font-size: 0.72rem; color: var(--dim); letter-spacing: 0.08em; }
+  #bar { height: 2px; background: var(--line); position: relative; overflow: hidden; }
+  #bar i { position: absolute; inset: 0 auto 0 0; width: 0%; background: var(--bone); transition: width 0.3s ease; }
+  .warn { font-size: 0.72rem; color: #7f7a70; max-width: 30rem; line-height: 1.6; }
+
+  /* player controls */
+  #hud { position: fixed; left: 0; right: 0; bottom: 0; padding: 0 clamp(16px, 3vw, 36px) calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 4; transition: opacity 0.5s ease; }
+  #hud.idle { opacity: 0; }
+  #hud[hidden] { display: none !important; }
+  .chapter { font-family: var(--display); font-weight: 600; font-size: 1.05rem; letter-spacing: 0.1em; margin-bottom: 0.55rem; display: flex; gap: 0.7rem; align-items: baseline; text-shadow: 0 1px 12px rgba(0,0,0,0.7); }
+  .chapter small { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.2em; color: var(--dim); }
+  #track { position: relative; height: 22px; cursor: pointer; touch-action: none; }
+  #track .rail { position: absolute; left: 0; right: 0; top: 10px; height: 2px; background: rgba(234,228,216,0.18); }
+  #track .fill { position: absolute; left: 0; top: 10px; height: 2px; background: var(--bone); width: 0; }
+  #track .mark { position: absolute; top: 5px; width: 1px; height: 12px; background: rgba(234,228,216,0.5); }
+  #track .mark span { position: absolute; top: -17px; left: -0.5em; font-family: var(--display); font-size: 0.72rem; color: var(--dim); white-space: nowrap; }
+  #track .knob { position: absolute; top: 6px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--bone); }
+  .row { display: flex; align-items: center; gap: 0.3rem 1rem; flex-wrap: wrap; margin-top: 0.3rem; }
+  .row .grp { display: flex; gap: 0.25rem; align-items: center; }
+  .btn { background: rgba(7,7,8,0.55); border: 1px solid rgba(234,228,216,0.18); padding: 0.32rem 0.6rem; min-width: 2.2rem; cursor: pointer; font-size: 0.78rem; }
+  .btn:hover { border-color: rgba(234,228,216,0.5); }
+  .btn[aria-pressed="true"] { background: var(--bone); color: var(--ink); border-color: var(--bone); }
+  .tc { font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.06em; font-variant-numeric: tabular-nums; color: var(--bone); }
+  .tc .w { color: var(--dim); margin-left: 0.6rem; }
+  .spacer { flex: 1; }
+  .hint { font-family: var(--mono); font-size: 0.66rem; color: var(--dim); }
+  #toast { position: fixed; top: calc(18px + env(safe-area-inset-top, 0px)); right: clamp(16px, 3vw, 36px); font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.1em; color: var(--bone); background: rgba(7,7,8,0.7); padding: 0.4rem 0.7rem; border: 1px solid var(--line); opacity: 0; transition: opacity 0.3s; z-index: 6; }
+  #toast.on { opacity: 1; }
+  #end { position: fixed; inset: 0; display: grid; place-items: center; z-index: 3; pointer-events: none; opacity: 0; transition: opacity 1.4s ease; }
+  #end.on { opacity: 1; pointer-events: auto; }
+  #end .card { text-align: center; display: grid; gap: 1rem; justify-items: center; padding-inline: 16px; }
+  #end h2 { margin: 0; font-family: var(--display); font-size: clamp(3rem, 9vw, 6rem); letter-spacing: 0.08em; }
+  @media (max-width: 560px) {
+    .hint, .tc .w { display: none; }
+    .btn { padding: 0.3rem 0.45rem; min-width: 1.9rem; }
+    #track .mark span { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { #intro, #hud, #end { transition: none; } }
 </style>
-<div id="stage"><canvas id="view"></canvas></div>
+<div id="stage"><canvas id="view" aria-label="崩界 — real-time 3DCG fight sequence"></canvas></div>
+<section id="intro" aria-labelledby="ttl">
+  <div class="titleblock">
+    <div class="kicker">Real-time 3DCG · Procedural · 約 3 分</div>
+    <h1 id="ttl">崩界<span class="latin">HOUKAI</span></h1>
+    <p class="logline">夕暮れの交差点。二人の拳が触れた瞬間から、街は壊れ始める。路上、塔の内部、外壁、屋上、空、そして街区そのものへ。すべてブラウザ上でリアルタイムに生成・演算・描画されます。</p>
+    <div class="duel"><span class="k"><b>カイ</b>速度の拳</span><span class="g"><b>ゴウ</b>質量の拳</span></div>
+    <div id="progress" role="status" aria-live="polite"><span id="ptxt">準備中</span><div id="bar"><i></i></div></div>
+    <div class="actions">
+      <button id="play" disabled><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 0 L10 5 L1 10 Z" fill="currentColor"/></svg>再生する</button>
+      <div class="opts">
+        <label for="q">画質 <select id="q"><option value="auto">自動</option><option value="ultra">最高</option><option value="high">高</option><option value="medium">中</option><option value="low">低</option></select></label>
+        <label for="flash"><input type="checkbox" id="flash">閃光を抑える</label>
+        <label for="snd"><input type="checkbox" id="snd" checked>音声</label>
+      </div>
+    </div>
+    <p class="warn">強い閃光と激しいカメラの動きを含みます。光過敏の方は「閃光を抑える」をオンにしてください。ヘッドホン推奨。</p>
+  </div>
+</section>
+<div id="hud" hidden>
+  <div class="chapter" id="chap">序 <small>静寂</small></div>
+  <div id="track" role="slider" tabindex="0" aria-label="シーク" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="rail"></div><div class="fill"></div><div class="knob"></div></div>
+  <div class="row">
+    <div class="grp">
+      <button class="btn" id="bplay" aria-label="一時停止">❚❚</button>
+      <button class="btn" id="bstep" aria-label="1フレーム進む" title="1フレーム進む (.)">▸|</button>
+    </div>
+    <div class="tc" id="tc">00:00:00<span class="w" id="wtc">W 0.00</span></div>
+    <div class="spacer"></div>
+    <div class="grp" role="group" aria-label="再生速度">
+      <button class="btn" data-speed="1" aria-pressed="true">1×</button>
+      <button class="btn" data-speed="0.5" aria-pressed="false">½×</button>
+      <button class="btn" data-speed="0.25" aria-pressed="false">¼×</button>
+      <button class="btn" data-speed="0.1" aria-pressed="false">⅒×</button>
+    </div>
+    <div class="grp">
+      <button class="btn" id="bmute" aria-label="ミュート" aria-pressed="false">音</button>
+      <button class="btn" id="bfs" aria-label="全画面">⛶</button>
+    </div>
+    <span class="hint">Space 再生/停止 · . コマ送り · ←→ 章 · S 速度 · F 全画面</span>
+  </div>
+</div>
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="end"><div class="card"><h2>崩界</h2><button class="btn" id="replay">もう一度観る</button></div></div>
 <script type="module">
 /*__APP__*/
 </script>
