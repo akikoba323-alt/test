@@ -43,7 +43,7 @@ async function renderChunk(i0, i1, file, tag) {
   });
   const server = await serve({ port: 0 });
   const port = server.address().port;
-  const { browser, page } = await openPage(`http://127.0.0.1:${port}/index.html?w=${W}&h=${H}&fps=${FPS}`, { W, H, quiet: true, threads: args.threads ? Number(args.threads) : undefined });
+  const { browser, page } = await openPage(`http://127.0.0.1:${port}/index.html?w=${W}&h=${H}&fps=${FPS}${args.grain ? '&grain=' + args.grain : ''}${args.grainsize ? '&grainsize=' + args.grainsize : ''}`, { W, H, quiet: true, threads: args.threads ? Number(args.threads) : undefined });
   const stats = await page.evaluate(async ([a, b, wp]) => await window.__renderRange(a, b, wp), [i0, i1, wss.address().port]);
   await browser.close();
   server.close(); wss.close();

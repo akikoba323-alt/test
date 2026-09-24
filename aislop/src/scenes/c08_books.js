@@ -191,12 +191,12 @@ export function bookScenes(eng) {
       const { ctx, t } = f;
       const cs = (id, sub) => cue(id, sub) - f.S.start;
       const tEasy = cs(88, '簡単') - 0.2, tCost = cs(89, 'コスト') - 0.5, tOld = cs(90, '昔なら') - 0.3, t300 = cs(90, '三百') - 0.3, tMad = cs(90, '狂気') - 0.4;
-      const q0 = since(t, 0, 0.4) * (1 - since(t, tEasy + 0.3, 0.3));
+      const q0 = since(t, 0, 0.4) * (1 - since(t, tEasy - 0.1, 0.15));
       if (q0 > 0) {
         text(ctx, 'なぜ本まで', 960, 440, { family: F.jpHeavy, size: 80, weight: 900, color: C.paper, align: 'center', alpha: q0 });
         text(ctx, 'slop化するのか', 960, 560, { family: F.jpHeavy, size: 110, weight: 900, color: C.slop, align: 'center', alpha: q0 });
       }
-      const eq = since(t, tEasy, 0.3, E.outBack) * (1 - since(t, tCost - 0.1, 0.3));
+      const eq = since(t, tEasy + 0.05, 0.3, E.outBack) * (1 - since(t, tCost - 0.1, 0.3));
       if (eq > 0) text(ctx, '簡単です。', 960, 560, { family: F.jpHeavy, size: 150, weight: 900, color: C.paper, align: 'center', each: popEach(eq, 0.3) });
       // cost cliff chart
       const cq = since(t, tCost, 0.5) * (1 - since(t, tOld, 0.4));

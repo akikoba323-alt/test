@@ -199,6 +199,9 @@ void main(){
   gl_FragColor = floor(o + .5) / 255.;
 }`;
 
+// global delivery knobs (set once at boot from URL params)
+export const POST_OPTS = { grainScale: 1, grainSizeScale: 1 };
+
 export const DEFAULT_LOOK = {
   grain: 0.045, grainSize: 1.6, vign: 0.35, ca: 0.12, bloom: 0.22, bloomThresh: 0.72, scan: 0, glitch: 0, sat: 1, contrast: 1, bright: 0,
   fade: 0, letterbox: 0, warp: 0, crt: 0, lift: [0, 0, 0], gain: [1, 1, 1], flash: [1, 1, 1, 0],
@@ -279,7 +282,8 @@ export class Post {
     u.tIn.value = src; u.tBloom.value = this.rtB1.texture; u.tBloom2.value = this.rtC1.texture;
     u.frame.value = frame % 1000; u.time.value = time;
     for (const k of ['grain', 'grainSize', 'vign', 'ca', 'bloom', 'scan', 'glitch', 'sat', 'contrast', 'bright', 'fade', 'letterbox', 'warp', 'crt']) u[k].value = look[k];
-    u.grainSize.value = look.grainSize * (gl.W / 1920);
+    u.grain.value = look.grain * POST_OPTS.grainScale;
+    u.grainSize.value = look.grainSize * POST_OPTS.grainSizeScale * (gl.W / 1920);
     u.lift.value.set(...look.lift); u.gain.value.set(...look.gain); u.flash.value.set(...look.flash);
     gl.pass(this.final, target);
   }

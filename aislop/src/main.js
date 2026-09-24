@@ -2,9 +2,12 @@
 import { Engine } from './engine/engine.js';
 import { Cues } from './engine/cues.js';
 import { buildScenes } from './scenes/index.js';
+import { POST_OPTS } from './engine/post.js';
 
 const P = new URLSearchParams(location.search);
 const W = Number(P.get('w') || 1920), H = Number(P.get('h') || 1080), FPS = Number(P.get('fps') || 30);
+if (P.get('grain')) POST_OPTS.grainScale = Number(P.get('grain'));
+if (P.get('grainsize')) POST_OPTS.grainSizeScale = Number(P.get('grainsize'));
 
 const FONT_LOADS = [
   '400 20px NotoSansJP', '700 20px NotoSansJP', '900 20px NotoSansJP', '400 20px NotoSerifJP', '900 20px NotoSerifJP',
@@ -30,7 +33,7 @@ async function boot() {
   const scenes = await buildScenes(eng);
   eng.setScenes(scenes);
   window.__eng = eng;
-  window.__info = () => ({ duration: eng.duration, fps: FPS, frames: Math.ceil(eng.duration * FPS), scenes: eng.scenes.map((s) => ({ id: s.id, start: s.start, end: s.end })) });
+  window.__info = () => ({ duration: eng.duration, fps: FPS, frames: Math.ceil(eng.duration * FPS), scenes: eng.scenes.map((s) => ({ id: s.id, start: s.start, end: s.end })), chapters: chapterList(eng) });
   window.__shot = async (T, type = 'image/jpeg') => { eng.render(T); return eng.canvas.toDataURL(type, 0.92); };
   // Stream frames [i0,i1) as yuv420p over a WebSocket; rendering of frame n+1 overlaps the transfer of frame n.
   window.__renderRange = async (i0, i1, wsPort) => {
@@ -54,5 +57,14 @@ async function boot() {
   };
   console.log(`boot ${((performance.now() - t0) / 1000).toFixed(1)}s, ${scenes.length} scenes, ${eng.duration.toFixed(1)}s`);
   window.__ready = true;
+}
+// distinct chapters in order, with the first scene that carries each one
+function chapterList(eng) {
+  const m = new Map();
+  for (const s of eng.scenes) {
+    const chs = Array.isArray(s.chapter) ? s.chapter : s.chapter ? [s.chapter] : [];
+    for (const c of chs) if (!m.has(c.n)) m.set(c.n, { n: c.n, jp: c.jp, en: c.en, t0: c.t0, scene: s.id, sceneStart: s.start });
+  }
+  return [...m.values()];
 }
 boot().catch((e) => { console.error('boot failed', e.stack || e); window.__failed = String(e.stack || e); });

@@ -183,7 +183,7 @@ export function endScenes(eng) {
         ctx.save(); ctx.translate(hx, hy); ctx.scale(pq, pq);
         circle(ctx, 0, -110, 44, C.human); fillRR(ctx, -58, -60, 116, 160, 44, C.human);
         ctx.restore();
-        text(ctx, '人間だけが払っている', hx, hy - 200, { family: F.jpHeavy, size: 40, weight: 900, color: C.human, align: 'center', alpha: pq * (1 - k) });
+        text(ctx, '人間だけが払っている', hx, hy - 200, { family: F.jpHeavy, size: 40, weight: 900, color: C.human, align: 'center', alpha: pq * (1 - clamp(k * 3)) });
         const sq = since(t, tSub, 0.4, E.outBack);
         if (sq > 0) {
           for (let m = 0; m < 6; m++) {
@@ -344,8 +344,8 @@ export function endScenes(eng) {
         const caps = [[tMass, 'ものすごい量で動かせる', C.paper], [tEach, '一つ一つは雑でも', C.mute2], [tMil, '百万個あれば', C.slop], [tLand, 'ネットの景色を変えられる', C.slop]];
         caps.forEach(([a, s, col], i) => {
           const b = i + 1 < caps.length ? caps[i + 1][0] : 1e9;
-          if (t < a || t > b + 0.25) return;
-          const q = since(t, a, 0.45, E.outExpo), o = 1 - since(t, b, 0.25);
+          if (t < a || t > b + 0.15) return;
+          const q = since(t, a + 0.08, 0.45, E.outExpo), o = 1 - since(t, b, 0.15);
           text(ctx, s, 960, 150, { family: F.jpHeavy, size: 60, weight: 900, color: col, align: 'center', alpha: o * hudA, each: riseEach(q, 30, 0.3) });
         });
       }
@@ -523,11 +523,11 @@ export function endScenes(eng) {
       GEM.forEach((pts, i) => {
         const c = pts.reduce((a, [x, y]) => [a[0] + x / pts.length, a[1] + y / pts.length], [0, 0]);
         const side = Math.abs(c[0]) < 1e-6 ? (r() < 0.5 ? -1 : 1) : Math.sign(c[0]);
-        shards.push({ pts: pts.map(([x, y]) => [(x - c[0]) * GS, (y - c[1]) * GS]), x0: GX + c[0] * GS, y0: GY + c[1] * GS, xf: GX + side * r.range(120, 520), yf: r.range(800, 835), h: r.range(120, 320), spin: r.range(-3, 3), col: GEM_COL[i] });
+        shards.push({ pts: pts.map(([x, y]) => [(x - c[0]) * GS, (y - c[1]) * GS]), x0: GX + c[0] * GS, y0: GY + c[1] * GS, xf: GX + side * r.range(120, 520), yf: r.range(835, 870), h: r.range(120, 320), spin: r.range(-3, 3), col: GEM_COL[i] });
       });
       for (let i = 0; i < 34; i++) {
         const a = r() * Math.PI * 2, s = r.range(8, 22);
-        shards.push({ pts: [[r.range(-1, 1) * s, r.range(-1, 1) * s], [r.range(-1, 1) * s, r.range(-1, 1) * s], [r.range(-1, 1) * s, r.range(-1, 1) * s]], x0: GX + Math.cos(a) * 60, y0: GY + Math.sin(a) * 60, xf: GX + Math.cos(a) * r.range(150, 760), yf: r.range(790, 845), h: r.range(80, 420), spin: r.range(-12, 12), col: GEM_COL[Math.floor(r() * 8)] });
+        shards.push({ pts: [[r.range(-1, 1) * s, r.range(-1, 1) * s], [r.range(-1, 1) * s, r.range(-1, 1) * s], [r.range(-1, 1) * s, r.range(-1, 1) * s]], x0: GX + Math.cos(a) * 60, y0: GY + Math.sin(a) * 60, xf: GX + Math.cos(a) * r.range(150, 760), yf: r.range(830, 880), h: r.range(80, 420), spin: r.range(-12, 12), col: GEM_COL[Math.floor(r() * 8)] });
       }
     },
     draw(f) {
@@ -596,7 +596,9 @@ export function endScenes(eng) {
       const tRegen = cs(204, '再生成') - 0.5, tClick = cs(204, 'ボタン') - 0.1, tNot = cs(204, '簡単ではありません') - 0.2;
       const tFail = tNot + 0.4;
       // the shards stay where they fell
-      drawShards(ctx, 1, 0.8 - 0.3 * since(t, 0.2, 1.5));
+      drawShards(ctx, 1, 0.8 - 0.35 * since(t, 0.2, 1.5));
+      const plateA = 1 - since(t, 0.3, 0.6);
+      if (plateA > 0) { ctx.save(); ctx.globalAlpha = plateA; fillRR(ctx, GX - 220, 780, 440, 100, 14, 'rgba(11,11,13,.9)'); text(ctx, '信頼の値段', GX, 760, { family: F.jp, size: 28, weight: 700, color: C.mute2, align: 'center' }); text(ctx, '¥0', GX, 856, { family: F.bebas, size: 80, color: C.alert, align: 'center' }); ctx.restore(); }
       text(ctx, 'それを作り直すのは', 960, 200, { family: F.mincho, size: 56, weight: 900, color: C.paper, align: 'center', alpha: since(t, 0.1, 0.5) });
       const bq = since(t, tRegen, 0.4, E.outBack);
       const click = pulse(t, tClick, 0.05, 0.2);
@@ -604,19 +606,19 @@ export function endScenes(eng) {
       const failed = t >= tFail;
       if (bq > 0) {
         const sx = failed ? Math.sin((t - tFail) * 42) * 16 * Math.exp(-(t - tFail) * 6) : 0;
-        ctx.save(); ctx.translate(960 + sx, 470); ctx.scale(bq * (1 - click * 0.06), bq * (1 - click * 0.06));
+        ctx.save(); ctx.translate(960 + sx, 440); ctx.scale(bq * (1 - click * 0.06), bq * (1 - click * 0.06));
         fillRR(ctx, -230, -54, 460, 108, 54, failed ? '#2a2a30' : '#f2f2f2'); strokeRR(ctx, -230, -54, 460, 108, 54, failed ? '#444' : '#ccc', 2);
         if (loading) spinner(ctx, -150, 0, 24, t, '#333', 4); else icon(ctx, 'refresh-cw', -150, 0, 40, { color: failed ? '#666' : '#222', lw: 2.2 });
         text(ctx, loading ? '再生成中…' : '再生成', 30, 16, { family: F.jpHeavy, size: 44, weight: 900, color: failed ? '#666' : '#222', align: 'center' });
         ctx.restore();
         const m = E.inOutCubic(clamp((t - tRegen - 0.2) / 0.9));
-        if (t < tNot + 1.5) cursor(ctx, lerp(1500, 1000, m), lerp(900, 490, m), 1.6, click);
+        if (t < tNot + 1.5) cursor(ctx, lerp(1500, 1000, m), lerp(900, 460, m), 1.6, click);
       }
       if (failed) {
-        text(ctx, '信頼は再生成できません', 960, 640, { family: F.jpHeavy, size: 40, weight: 900, color: C.alert, align: 'center', alpha: since(t, tFail, 0.5) });
-        text(ctx, 'ほど簡単ではない。', 960, 860, { family: F.mincho, size: 70, weight: 900, color: C.paper, align: 'center', each: riseEach(since(t, tNot + 0.2, 0.8, E.outExpo), 30, 0.3) });
+        text(ctx, '信頼は再生成できません', 960, 575, { family: F.jpHeavy, size: 40, weight: 900, color: C.alert, align: 'center', alpha: since(t, tFail, 0.5) });
+        text(ctx, 'ほど簡単ではない。', 960, 700, { family: F.mincho, size: 70, weight: 900, color: C.paper, align: 'center', each: riseEach(since(t, tNot + 0.2, 0.8, E.outExpo), 30, 0.3) });
       } else if (t > tRegen) {
-        text(ctx, 'AIに「再生成」ボタンを押させるほど', 960, 860, { family: F.mincho, size: 50, weight: 900, color: C.paper, align: 'center', alpha: since(t, tRegen, 0.5) });
+        text(ctx, 'AIに「再生成」ボタンを押させるほど', 960, 700, { family: F.mincho, size: 50, weight: 900, color: C.paper, align: 'center', alpha: since(t, tRegen, 0.5) });
       }
     },
   };
