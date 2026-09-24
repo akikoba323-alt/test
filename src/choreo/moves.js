@@ -40,7 +40,7 @@ export function ready(F, t, ease = 'inOutQuad') {
     stanceL: [tall ? 0.24 : 0.14, 0, tall ? 0.08 : 0.1], stanceR: [tall ? -0.24 : -0.14, 0, tall ? -0.06 : -0.08], footYawL: 10, footYawR: -14,
     ikHandLw: 0, ikHandRw: 0, 'upperarm.L': [4, 0, tall ? 22 : 10], 'upperarm.R': [4, 0, tall ? -22 : -10], 'forearm.L': [tall ? -24 : -12, 0, 0], 'forearm.R': [tall ? -24 : -12, 0, 0],
     fistL: tall ? 1 : 0.6, fistR: tall ? 1 : 0.6, look: 1, aimL: 0, aimR: 0, jaw: 0, hipOff: [0, 0, 0], feet: 'plant', tilt: [0, 0], ikFootLw: 0, ikFootRw: 0,
-    energy: 0, eyeGlow: 0, damage: 0, soot: 0, smear: 0.35, overlap: 1,
+    energy: 0, eyeGlow: 0, damage: 0, soot: 0, smear: 0.35, overlap: 1, ghost: 0,
   }, ease);
   return t;
 }

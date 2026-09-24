@@ -7,6 +7,7 @@ import { createFighterMaterial } from './charmaterial.js';
 import { EYE_OFFSET } from './models.js';
 import { Animator } from './anim.js';
 import { buildSkirt, buildStrip } from './cloth.js';
+import { patchEnvOcc } from '../render/interior.js';
 
 // cloth surface: sheen fabric; hem frays as damage grows (holes discarded by noise)
 function clothMaterial(color, sheen = 0.6) {
@@ -27,6 +28,7 @@ float nC(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   float hem = vUvC.y;
   if (n < uDamage * (0.15 + hem * 0.9) - 0.05) discard;
 }`);
+    patchEnvOcc(sh);
   };
   return m;
 }
@@ -70,7 +72,55 @@ export class Fighter {
     }
     this.neutral();
     this.anim = new Animator(this);
+    this.buildGhosts(opts.ghostColor || [0.4, 0.85, 1.0]);
   }
+
+  // afterimages: skinned copies that replay past skeleton poses
+  buildGhosts(color) {
+    const n = 6;
+    this.ghostHist = [];
+    this.ghostTimes = [];
+    this.ghosts = [];
+    const nb = this.rig.bones.length;
+    for (let i = 0; i < n; i++) {
+      const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(...color), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+      const dummy = this.rig.bones.map(() => new THREE.Bone());
+      const sk = new THREE.Skeleton(dummy, this.skeleton.boneInverses.map((m) => m.clone()));
+      const g = new THREE.SkinnedMesh(this.mesh.geometry, mat);
+      g.bind(sk, new THREE.Matrix4());
+      g.frustumCulled = false;
+      g.visible = false;
+      const snap = new Float32Array(nb * 16);
+      sk.update = function () { this.boneMatrices.set(snap); if (this.boneTexture) this.boneTexture.needsUpdate = true; };
+      this.group.add(g);
+      this.ghosts.push({ mesh: g, snap, mat });
+    }
+  }
+  // record the current pose (world time t); keep ~0.4 s of history
+  recordGhost(t) {
+    const nb = this.rig.bones.length;
+    const last = this.ghostTimes[this.ghostTimes.length - 1];
+    if (last !== undefined && t - last < 1 / 90) return;
+    const arr = this.ghostHist.length > 40 ? this.ghostHist.shift() : new Float32Array(nb * 16);
+    if (this.ghostTimes.length > 40) this.ghostTimes.shift();
+    const m = new THREE.Matrix4();
+    for (let i = 0; i < nb; i++) { m.multiplyMatrices(this.rig.bones[i].matrixWorld, this.skeleton.boneInverses[i]); m.toArray(arr, i * 16); }
+    this.ghostHist.push(arr);
+    this.ghostTimes.push(t);
+  }
+  updateGhosts(t, amount, spacing = 0.035) {
+    for (let k = 0; k < this.ghosts.length; k++) {
+      const gh = this.ghosts[k];
+      const want = t - (k + 1) * spacing;
+      if (amount <= 0.01 || !this.ghostTimes.length || want < this.ghostTimes[0]) { gh.mesh.visible = false; continue; }
+      let j = this.ghostTimes.length - 1;
+      while (j > 0 && this.ghostTimes[j] > want) j--;
+      gh.snap.set(this.ghostHist[j]);
+      gh.mesh.visible = true;
+      gh.mat.opacity = amount * 0.55 * (1 - k / this.ghosts.length);
+    }
+  }
+  clearGhosts() { this.ghostHist.length = 0; this.ghostTimes.length = 0; for (const g of this.ghosts || []) g.mesh.visible = false; }
 
   neutral() {
     for (const b of this.rig.bones) b.quaternion.identity();

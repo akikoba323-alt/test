@@ -49,9 +49,10 @@ export class Film {
     e.city.reset();
     e.fx.reset();
     e.debris.reset();
+    e.interiors.reset();
     this.combat.reset();
     for (const L of e.city.lamps) L.on = true;
-    for (const f of [e.kai, e.gou]) { f.anim.reset(); f.hurt = 0; for (const c of f.cloths) c.cloth.inited = false; }
+    for (const f of [e.kai, e.gou]) { f.anim.reset(); f.hurt = 0; f.clearGhosts(); for (const c of f.cloths) c.cloth.inited = false; }
     this.queue.clear();
     for (const ev of this.S.events) this.queue.push(ev.w, ev.fn, ev.tag);
     this.cues.length = 0;
@@ -108,6 +109,8 @@ export class Film {
       f.anim.evaluate(W, dt);
       this.updateFighterFx(f, W, dt);
       this.updateCloth(f, W, dt);
+      f.recordGhost(W);
+      f.updateGhosts(W, f.anim.ch.ghost ?? 0, f.anim.ch.ghostGap ?? 0.035);
     }
     e.debris.movers = [e.kai, e.gou].map((f) => ({ a: f.anim.bonePos.hips.clone(), b: f.anim.bonePos.head.clone(), r: f === e.gou ? 0.6 : 0.45, vel: f.anim.boneVel.chest.clone() }));
     e.debris.step(dt, W);

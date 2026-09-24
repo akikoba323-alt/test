@@ -2,6 +2,7 @@
 // queue, per-type physics (gravity, drag, buoyancy, curl-noise turbulence, ground bounce),
 // forces from shockwave shells and from fast-moving fighters, and soft lit billboards.
 import * as THREE from 'three';
+import { INTERIOR_GLSL, interiorUniforms } from '../render/interior.js';
 
 export const PT = {
   DUST: 0, SMOKE: 1, SPARK: 2, EMBER: 3, CHIP: 4, GLASS: 5, FIRE: 6, RING: 7, WATER: 8, PAPER: 9, ENERGY: 10, TRAIL: 11, VAPOR: 12, FLASH: 13, BLOOD: 14, ASH: 15,
@@ -229,6 +230,7 @@ uniform float uTime, uFogDensity;
 in vec2 vUv; in float vType; in float vAgeN; in float vSeed; in vec3 vWp; in float vViewZ; in float vSize; in vec3 vVel; in float vLifeAge;
 in float vSunVis;
 out vec4 fragColor;
+${INTERIOR_GLSL}
 float h11(float n) { return fract(sin(n) * 43758.5453); }
 void main() {
   float sceneZ = texelFetch(tDepthHalf, ivec2(gl_FragCoord.xy), 0).r;
@@ -242,7 +244,7 @@ void main() {
   bool additive = false;
   // soft intersection with geometry
   float soft = clamp((sceneZ - vViewZ) / max(vSize * 0.8, 0.05), 0.0, 1.0);
-  vec3 light = uAmbient;
+  vec3 light = uAmbient * envOcc(vWp);
   for (int i = 0; i < 8; i++) {
     if (i >= uLN) break;
     vec3 d = uLPos[i].xyz - vWp;
@@ -371,6 +373,7 @@ export class Particles {
         uSunDir: { value: new THREE.Vector3(0, 1, 0) }, uSunCol: { value: new THREE.Vector3(1, 1, 1) }, uAmbient: { value: new THREE.Vector3(0.3, 0.3, 0.35) }, uFogColor: { value: new THREE.Vector3(0.5, 0.5, 0.5) },
         uLPos: { value: v4(8) }, uLCol: { value: v4(8) }, uLN: { value: 0 }, uTime: { value: 0 }, uFogDensity: { value: 0.0015 },
         tShadow: { value: null }, uShadowM: { value: [new THREE.Matrix4(), new THREE.Matrix4()] }, uCascade: { value: v4(2) }, uShadowOn: { value: 0 },
+        ...interiorUniforms,
       },
       transparent: true, depthTest: false, depthWrite: false,
       blending: THREE.CustomBlending, blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor,

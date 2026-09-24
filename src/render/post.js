@@ -6,6 +6,7 @@
 import * as THREE from 'three';
 import { Pass, makeRT } from './fsq.js';
 import { COMMON, PHASE } from './glsl.js';
+import { INTERIOR_GLSL, interiorUniforms } from './interior.js';
 
 const MAX_DUST = 16, MAX_VLIGHTS = 8, MAX_SHOCK = 8, MAX_HEAT = 4;
 
@@ -30,6 +31,7 @@ precision highp sampler2DShadow;
 precision highp sampler3D;
 ${COMMON}
 ${PHASE}
+${INTERIOR_GLSL}
 uniform sampler2D tDepthHalf;
 uniform sampler2DShadow tShadow;
 uniform sampler3D tNoise;
@@ -109,7 +111,7 @@ void main() {
     float sig = density(p, heat);
     if (sig < 1e-6) continue;
     float vd = t * cosZ;
-    vec3 L = uSunColor * uSunScatter * sunVis(p, vd) * phSun + uAmbient * (1.0 / (4.0 * PI));
+    vec3 L = uSunColor * uSunScatter * sunVis(p, vd) * phSun + uAmbient * envOcc(p) * (1.0 / (4.0 * PI));
     for (int k = 0; k < ${MAX_VLIGHTS}; k++) {
       if (k >= uLCount) break;
       vec3 dl = uLPos[k].xyz - p;
@@ -565,6 +567,7 @@ export class Post {
       uDust: { value: v4(MAX_DUST) }, uDustP: { value: v4(MAX_DUST) }, uDustCount: { value: 0 },
       uLPos: { value: v4(MAX_VLIGHTS) }, uLCol: { value: v4(MAX_VLIGHTS) }, uLCount: { value: 0 },
       uSteps: { value: this.q.volSteps || 32 },
+      ...interiorUniforms,
     });
     this.pCombine = new Pass(COMBINE, {
       tScene: { value: null }, tDepth: { value: null }, tDepthHalf: { value: null }, tVol: { value: null }, tPart: { value: null }, tMask: { value: null },

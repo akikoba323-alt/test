@@ -2,6 +2,7 @@
 // Appearance is a function of the element's REST position/normal so a wall looks identical
 // the instant before and after it shatters (chunks carry their rest coordinates).
 import * as THREE from 'three';
+import { patchEnvOcc } from '../render/interior.js';
 
 export const KIND = { CONCRETE: 0, CLADDING: 1, ALU: 2, DRYWALL: 3, SLAB: 4, BRICK: 5, STEEL: 6, STONE: 7, FRACTURE: 8, WOOD: 9, PLASTIC: 10, SIGN: 11, ASPHALT: 12, PAVER: 13, DIRT: 14, CARPAINT: 15, RUBBER: 16 };
 export const MAX_CRACKS = 24;
@@ -295,6 +296,7 @@ vec3 perturbA(vec3 surf_pos, vec3 surf_norm, vec2 dHdxy, float faceDirection) {
 normal = perturbA(-vViewPosition, normal, vec2(dFdx(gBumpA), dFdy(gBumpA)), faceDirection);`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
 totalEmissiveRadiance += gEmitA;`);
+    patchEnvOcc(sh);
   };
   return mat;
 }

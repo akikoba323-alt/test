@@ -11,7 +11,7 @@ export function buildScript(S, film) {
 
   // ============================================================================================
   // LIGHTING — color script
-  S.look(0, { sunElev: 3.4, sunAz: -90, sunColor: [1.0, 0.58, 0.3], sunIntensity: 4.6, cloudCover: 0.42, night: 0.15, exposure: 1.75, envIntensity: 1.6, fogDensity: 0.0014, sunScatter: 0.9,
+  S.look(0, { sunElev: 3.4, sunAz: -90, sunColor: [1.0, 0.58, 0.3], sunIntensity: 4.6, cloudCover: 0.42, night: 0.15, exposure: 1.75, envIntensity: 1.25, fogDensity: 0.0014, sunScatter: 0.9,
     grade: { sat: 1.06, contrast: 1.1, temp: 0.04, lift: [0.0, 0.004, 0.014], gain: [1.03, 1.0, 0.97], splitShadow: [-0.14, 0.03, 0.24], splitHigh: [0.2, 0.07, -0.1] } });
   S.look(10.9, { fogDensity: 0.0014 });
   S.look(11.2, { fogDensity: 0.0009, sunScatter: 0.7 });
@@ -375,6 +375,7 @@ export function buildScript(S, film) {
     c.breakAround(p, 4.2, { speed: 20, blastPos: p.clone().add(V(-4, 0, 6)) });
     c.shatterRing(p, 30, 90, 1);
     c.damageAround(p, 12, 0.6);
+    e.interiors.addPortal(V(lobbyHit[0], 3, lobbyHit[2] - 1), 7);
     e.fx.crack(V(lobbyHit[0], 0.1, lobbyHit[2] - 3), 8, { grow: 0.2 });
     e.fx.hit(p, V(0.4, 0, -1).normalize(), 1.3, 'heavy');
     e.fx.dust(V(lobbyHit[0], 2, lobbyHit[2] - 6), 2, 14, 0.025, 8, 1.2);

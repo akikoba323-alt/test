@@ -12,6 +12,7 @@ import { KAI, GOU } from './character/models.js';
 import { KAI_TABLE, GOU_TABLE } from './character/tables.js';
 import { FX } from './fx/fx.js';
 import { Debris } from './fx/debris.js';
+import { Interiors } from './render/interior.js';
 
 export const QUALITY = {
   ultra: { scale: 1.0, msaa: 4, volSteps: 40, shadow: 2048, bloomLevels: 6 },
@@ -71,11 +72,11 @@ export class Engine {
     this.city = new City(ctx, (m) => progress(m, 0.2));
     this.scene.add(this.city.group);
     await step('fighters', 0.5);
-    this.kai = new Fighter(KAI, KAI_TABLE, { noise3D: this.noise3D, energyMode: 0 });
+    this.kai = new Fighter(KAI, KAI_TABLE, { noise3D: this.noise3D, energyMode: 0, ghostColor: [0.35, 0.8, 1.0] });
     this.kai.u.uEnergyColor.value.setRGB(0.35, 0.8, 1.0);
     this.kai.u.uEyeColor.value.setRGB(0.4, 0.9, 1.0);
     await step('fighters', 0.75);
-    this.gou = new Fighter(GOU, GOU_TABLE, { noise3D: this.noise3D, energyMode: 1 });
+    this.gou = new Fighter(GOU, GOU_TABLE, { noise3D: this.noise3D, energyMode: 1, ghostColor: [1.0, 0.35, 0.08] });
     this.gou.u.uEnergyColor.value.setRGB(1.0, 0.36, 0.06);
     this.gou.u.uEyeColor.value.setRGB(1.0, 0.45, 0.1);
     this.kai.anim.opponent = this.gou;
@@ -86,6 +87,10 @@ export class Engine {
     this.debris = new Debris(this);
     this.debris.floorFn = (x, y, z) => this.city.floorAt(x, y, z);
     this.debris.obstacles = this.city.shellBoxes();
+    // interior sky occlusion for the buildings the fight enters
+    this.interiors = new Interiors();
+    const c = this.city;
+    this.interiors.setBoxes([c.t1, c.b3, c.b4, c.store].map((b) => ({ min: [b.P.x0, -0.5, b.P.z0], max: [b.P.x1, b.topY - 0.05, b.P.z1], floor: 0.1, falloff: b === c.t1 ? 3.2 : 2.6 })));
     this.maskMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
     await step('environment', 0.95);
     this.scene.environment = this.sky.buildEnv();
@@ -116,6 +121,7 @@ export class Engine {
       time: this.time, cloudCover: L.cloudCover, cloudBright: L.cloudBright, smoke: L.smoke, stars: L.stars, sunDisk: L.sunDisk, skyExpo: L.skyExpo,
       groundGlow: L.groundGlow, groundGlowColor: new THREE.Vector3(...L.groundGlowColor), smokeColor: new THREE.Vector3(...L.smokeColor),
     });
+    this.scene.environmentIntensity = L.envIntensity;
     damageUniforms.uNight.value = L.night;
     damageUniforms.uPower.value = L.power;
   }

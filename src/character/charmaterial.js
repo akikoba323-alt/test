@@ -2,6 +2,7 @@
 // by per-vertex weights, procedural micro detail in bind space, wrap-lit skin, accumulated damage
 // (dust, soot, scratches, torn cloth revealing skin), energy glow, impact dents and smear frames.
 import * as THREE from 'three';
+import { patchEnvOcc } from '../render/interior.js';
 
 export const MAX_IMPACTS = 4;
 
@@ -263,6 +264,7 @@ totalEmissiveRadiance += gEmit;`)
       'vec3 outgoingLight = totalDiffuse + totalSpecular + totalEmissiveRadiance;',
       `vec3 sssTint = vec3(1.0, 0.38, 0.25);
 vec3 outgoingLight = totalDiffuse * (1.0 + gSSS * sssTint * 0.35) + totalSpecular + totalEmissiveRadiance;`);
+    patchEnvOcc(sh);
   };
   return mat;
 }
