@@ -13,10 +13,10 @@ import { scienceScenes } from './c10_science.js';
 import { collapseScenes } from './c11_collapse.js';
 import { doubtScenes } from './c12_doubt.js';
 import { costScenes } from './c13_cost.js';
+import { trustScenes } from './c14_trust.js';
+import { endScenes } from './c15_end.js';
 
 export async function buildScenes(eng) {
-  const list = [...openScenes(eng), ...defineScenes(eng), ...scaleScenes(eng), ...newsScenes(eng), ...looksScenes(eng), ...videoScenes(eng), ...econScenes(eng), ...musicScenes(eng), ...bookScenes(eng), ...courtScenes(eng), ...scienceScenes(eng), ...collapseScenes(eng), ...doubtScenes(eng), ...costScenes(eng)];
-  // temporary tail so the timeline covers the narration while chapters are in progress
-  list.push({ id: 'END', start: eng.cues.at(167) - 0.3, hud: false, draw() {} });
+  const list = [...openScenes(eng), ...defineScenes(eng), ...scaleScenes(eng), ...newsScenes(eng), ...looksScenes(eng), ...videoScenes(eng), ...econScenes(eng), ...musicScenes(eng), ...bookScenes(eng), ...courtScenes(eng), ...scienceScenes(eng), ...collapseScenes(eng), ...doubtScenes(eng), ...costScenes(eng), ...trustScenes(eng), ...endScenes(eng)];
   return list;
 }
