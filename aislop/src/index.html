@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>AI SLOP — motion</title>
+<style>
+  @font-face { font-family: NotoSansJP; src: url('/fonts/NotoSansJP[wght].ttf'); font-weight: 100 900; }
+  @font-face { font-family: NotoSerifJP; src: url('/fonts/NotoSerifJP[wght].ttf'); font-weight: 200 900; }
+  @font-face { font-family: DelaGothic; src: url('/fonts/DelaGothicOne-Regular.ttf'); }
+  @font-face { font-family: DotGothic; src: url('/fonts/DotGothic16-Regular.ttf'); }
+  @font-face { font-family: ZenKaku; src: url('/fonts/ZenKakuGothicNew-Regular.ttf'); font-weight: 400; }
+  @font-face { font-family: ZenKaku; src: url('/fonts/ZenKakuGothicNew-Medium.ttf'); font-weight: 500; }
+  @font-face { font-family: ZenKaku; src: url('/fonts/ZenKakuGothicNew-Bold.ttf'); font-weight: 700; }
+  @font-face { font-family: ZenKaku; src: url('/fonts/ZenKakuGothicNew-Black.ttf'); font-weight: 900; }
+  @font-face { font-family: ZenOldMincho; src: url('/fonts/ZenOldMincho-Regular.ttf'); font-weight: 400; }
+  @font-face { font-family: ZenOldMincho; src: url('/fonts/ZenOldMincho-Bold.ttf'); font-weight: 700; }
+  @font-face { font-family: ZenOldMincho; src: url('/fonts/ZenOldMincho-Black.ttf'); font-weight: 900; }
+  @font-face { font-family: Shippori; src: url('/fonts/ShipporiMinchoB1-Regular.ttf'); font-weight: 400; }
+  @font-face { font-family: Shippori; src: url('/fonts/ShipporiMinchoB1-Bold.ttf'); font-weight: 700; }
+  @font-face { font-family: Shippori; src: url('/fonts/ShipporiMinchoB1-ExtraBold.ttf'); font-weight: 800; }
+  @font-face { font-family: Klee; src: url('/fonts/KleeOne-Regular.ttf'); font-weight: 400; }
+  @font-face { font-family: Klee; src: url('/fonts/KleeOne-SemiBold.ttf'); font-weight: 600; }
+  @font-face { font-family: Yomogi; src: url('/fonts/Yomogi-Regular.ttf'); }
+  @font-face { font-family: HachiMaru; src: url('/fonts/HachiMaruPop-Regular.ttf'); }
+  @font-face { font-family: MPlusCode; src: url('/fonts/MPLUS1Code[wght].ttf'); font-weight: 100 700; }
+  @font-face { font-family: ZenMaru; src: url('/fonts/ZenMaruGothic-Bold.ttf'); font-weight: 700; }
+  @font-face { font-family: ZenMaru; src: url('/fonts/ZenMaruGothic-Black.ttf'); font-weight: 900; }
+  @font-face { font-family: MochiyPop; src: url('/fonts/MochiyPopOne-Regular.ttf'); }
+  @font-face { font-family: YujiSyuku; src: url('/fonts/YujiSyuku-Regular.ttf'); }
+  @font-face { font-family: Rampart; src: url('/fonts/RampartOne-Regular.ttf'); }
+  @font-face { font-family: TrainOne; src: url('/fonts/TrainOne-Regular.ttf'); }
+  @font-face { font-family: Reggae; src: url('/fonts/ReggaeOne-Regular.ttf'); }
+  @font-face { font-family: Inter; src: url('/fonts/Inter[opsz,wght].ttf'); font-weight: 100 900; }
+  @font-face { font-family: JBMono; src: url('/fonts/JetBrainsMono[wght].ttf'); font-weight: 100 800; }
+  @font-face { font-family: SpaceGrotesk; src: url('/fonts/SpaceGrotesk[wght].ttf'); font-weight: 300 700; }
+  @font-face { font-family: Bebas; src: url('/fonts/BebasNeue-Regular.ttf'); }
+  @font-face { font-family: Anton; src: url('/fonts/Anton-Regular.ttf'); }
+  @font-face { font-family: InstrumentSerif; src: url('/fonts/InstrumentSerif-Regular.ttf'); font-style: normal; }
+  @font-face { font-family: InstrumentSerif; src: url('/fonts/InstrumentSerif-Italic.ttf'); font-style: italic; }
+  @font-face { font-family: Garamond; src: url('/fonts/EBGaramond[wght].ttf'); font-weight: 400 800; font-style: normal; }
+  @font-face { font-family: Garamond; src: url('/fonts/EBGaramond-Italic[wght].ttf'); font-weight: 400 800; font-style: italic; }
+  @font-face { font-family: LibSerif; src: url('/fonts/LiberationSerif-Regular.ttf'); font-weight: 400; }
+  @font-face { font-family: LibSerif; src: url('/fonts/LiberationSerif-Bold.ttf'); font-weight: 700; }
+  @font-face { font-family: LibSerif; src: url('/fonts/LiberationSerif-Italic.ttf'); font-style: italic; }
+  @font-face { font-family: CourierPrime; src: url('/fonts/CourierPrime-Regular.ttf'); font-weight: 400; }
+  @font-face { font-family: CourierPrime; src: url('/fonts/CourierPrime-Bold.ttf'); font-weight: 700; }
+  @font-face { font-family: VT323; src: url('/fonts/VT323-Regular.ttf'); }
+  @font-face { font-family: PressStart; src: url('/fonts/PressStart2P-Regular.ttf'); }
+  @font-face { font-family: ComicNeue; src: url('/fonts/ComicNeue-Regular.ttf'); font-weight: 400; }
+  @font-face { font-family: ComicNeue; src: url('/fonts/ComicNeue-Bold.ttf'); font-weight: 700; }
+  @font-face { font-family: NotoArabic; src: url('/fonts/NotoSansArabic[wdth,wght].ttf'); font-weight: 100 900; }
+  @font-face { font-family: NotoThai; src: url('/fonts/NotoSansThai[wdth,wght].ttf'); font-weight: 100 900; }
+  @font-face { font-family: Fraktur; src: url('/fonts/UnifrakturMaguntia-Book.ttf'); }
+  @font-face { font-family: Playfair; src: url('/fonts/PlayfairDisplay[wght].ttf'); font-weight: 400 900; }
+  @font-face { font-family: ArchivoBlack; src: url('/fonts/ArchivoBlack-Regular.ttf'); }
+  @font-face { font-family: Oswald; src: url('/fonts/Oswald[wght].ttf'); font-weight: 200 700; }
+  html, body { margin: 0; background: #000; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<script type="module" src="./bundle.js"></script>
+</body>
+</html>

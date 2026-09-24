@@ -1,0 +1,20 @@
+{
+  "name": "aislop-motion",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Motion graphics for the explainer video 'AI SLOP'",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "shot": "node tools/shot.mjs",
+    "render": "node tools/render.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "lucide-static": "^1.48.0",
+    "three": "^0.186.0",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2",
+    "ws": "^8.21.3"
+  }
+}
