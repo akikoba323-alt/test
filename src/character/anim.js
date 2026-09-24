@@ -191,6 +191,12 @@ export class Animator {
     const rotated = pivot.clone().applyQuaternion(this.rootQuat);
     B.root.position.set(pos[0], pos[1], pos[2]).add(pivot).sub(rotated);
     B.root.quaternion.copy(this.rootQuat);
+    if (this.rootOverride) {
+      B.root.position.copy(this.rootOverride.pos);
+      if (this.rootOverride.quat) { B.root.quaternion.copy(this.rootOverride.quat); this.rootQuat.copy(this.rootOverride.quat); }
+      this.groundPos.set(this.rootOverride.pos.x, floor, this.rootOverride.pos.z);
+      this.rootOverride = null;
+    }
     this.rootPos.copy(B.root.position);
 
     // accel-driven overlap

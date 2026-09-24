@@ -73,14 +73,15 @@ vec2 crackField(vec3 P, vec3 N) {
     float wob = (texture(tNoise2, vec2(r * 0.35 / max(cp.w, 0.5), floor(a) * 0.137 + seed)).r - 0.5) * 0.9;
     float radial = abs(fa + wob * 0.45);
     float radialLine = smoothstep(0.035 + 0.02 / (1.0 + r), 0.0, radial * max(r, 0.05) / max(cp.w * 0.08, 0.02));
-    // cellular network (finer near the center)
-    float sc = 1.6 / max(cp.w * 0.12, 0.08);
+    // cellular network, only close to the impact, with broken (intermittent) segments
+    float sc = 1.0 / max(cp.w * 0.07, 0.05);
     float cell = vEdge2(uv * sc + seed * 17.0);
-    float cellLine = smoothstep(0.05, 0.0, cell) * smoothstep(cp.w * 0.95, cp.w * 0.2, dist);
-    float fade = smoothstep(cp.w, cp.w * 0.55, dist);
-    float k = max(radialLine * fade, cellLine * 0.85) * cq.x;
+    float gaps = smoothstep(0.35, 0.6, texture(tNoise2, uv * sc * 0.21 + seed).r);
+    float cellLine = smoothstep(0.035, 0.0, cell) * smoothstep(cp.w * 0.5, cp.w * 0.08, dist) * gaps;
+    float fade = smoothstep(cp.w, cp.w * 0.45, dist);
+    float k = max(radialLine * fade, cellLine * 0.8) * cq.x;
     // crushed core
-    k = max(k, smoothstep(cp.w * 0.18, cp.w * 0.05, dist) * cq.x * 0.9);
+    k = max(k, smoothstep(cp.w * 0.1, cp.w * 0.03, dist) * cq.x * 0.7);
     c = max(c, k);
     glow = max(glow, k * cq.y * smoothstep(cp.w, 0.0, dist));
   }
@@ -191,6 +192,9 @@ void archSurface(float kind, vec3 P, vec3 N, vec3 L, vec3 S, vec3 tint, float se
   } else if (k == 11.0) {
     alb = tint * 0.2; rough = 0.4;
     emit = tint * 4.0 * uPower * (0.85 + 0.15 * sin(uTime * 2.0 + seed * 10.0));
+  } else if (k == 12.0) {
+    alb = vec3(0.075, 0.074, 0.072) * (0.75 + 0.5 * big) * (0.85 + 0.3 * fine);
+    rough = 0.88; bump = fine * 0.004 + mid * 0.002;
   } else if (k == 13.0) {
     // sidewalk pavers
     vec2 uv = P.xz / vec2(0.3, 0.3);
@@ -273,7 +277,7 @@ vec3 perturbA(vec3 surf_pos, vec3 surf_norm, vec2 dHdxy, float faceDirection) {
 {
   vec3 alb; float rgh, met, bmp; vec3 em;
   vec3 N0 = normalize(vRestN);
-  if (vArchV.w > 0.5) { fractureSurface(vRest, N0, alb, rgh, bmp); met = 0.0; em = vec3(0.0); }
+  if (vArchV.w > 0.5) { fractureSurface(vRest, N0, alb, rgh, bmp); met = 0.0; em = vec3(0.0); float kk = floor(vArchV.x + 0.5); if (kk == 12.0 || kk == 14.0) alb *= kk == 12.0 ? 0.28 : 0.55; }
   else archSurface(vArchV.x, vRest, N0, vLocal, vSize, vTint, vArchV.y, vArchV.z, alb, rgh, met, em, bmp);
   vec2 cr = crackField(vRest, N0);
   alb *= 1.0 - cr.x * 0.85;

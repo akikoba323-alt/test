@@ -2,6 +2,7 @@
 // joint positions so the same code adapts to each fighter's proportions.
 import * as THREE from 'three';
 import { sphere, ellipsoid, roundCone, roundBox, torus, basisFromY, basisEuler } from './sdf.js';
+import { buildSkirt, buildStrip } from './cloth.js';
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const lerp = (a, b, t) => a.clone().lerp(b, t);
@@ -108,7 +109,15 @@ function buildHead(J, prims, o) {
   const [ex, ey, ez] = EYE_OFFSET;
   // brows (hair material) following the brow ridge
   const ridgeR = 0.0105 * f.brow;
-  if (o.brows) for (const sx of [1, -1]) prims.push(roundCone(P(sx * 0.011, 0.0955, 0.081 + ridgeR * 0.9), P(sx * 0.05, 0.0995, 0.07 + ridgeR * 0.8), 0.0036, 0.0019, { k: 0.002, mat: M.HAIR, bones: hb, tag: 'brow' }));
+  if (o.brows) for (const sx of [1, -1]) {
+    // brow: a chain of small ellipsoid tufts sitting proud of the brow ridge
+    for (let i = 0; i < 5; i++) {
+      const u = i / 4;
+      const x = sx * (0.011 + u * 0.04), y = 0.0955 + u * 0.0045 - u * u * 0.004;
+      const z = 0.081 + ridgeR * 1.0 - u * 0.012 + 0.0012;
+      prims.push(ellipsoid(P(x, y, z), 0.0062, 0.0021 - u * 0.0006, 0.0019, basisEuler(0, 0, sx * (8 + u * 10)), { k: 0.0012, mat: M.HAIR, bones: hb, tag: 'brow' }));
+    }
+  }
   for (const sx of [1, -1]) prims.push(sphere(P(sx * ex, ey + 0.002, ez + 0.016), 0.0175, { op: 'sub', k: 0.011 }));
   for (const sx of [1, -1]) prims.push(sphere(P(sx * ex, ey, ez), 0.0126, { k: 0.0015, mat: skin, tag: 'eye', bones: hb }));
   for (const sx of [1, -1]) prims.push(ellipsoid(P(sx * ex, ey + 0.0078, ez + 0.0045), 0.0142, 0.0042, 0.0092, basisEuler(24, 0, 0), { k: 0.0045, mat: skin, bones: hb }));
@@ -265,6 +274,25 @@ export const KAI = {
   },
   parts(J, rig) { return standardParts(J, rig, { neckCut: J.neck.y + 0.052, body: 0.0062, head: 0.003, hand: 0.003, wristT: 0.9, headTop: 0.36 }); },
   lodParts() { return [{ name: 'lod', cell: 0.016, bounds: [-0.75, -0.02, -0.3, 0.75, 2.05, 0.3], project: 1 }]; },
+  cloth(J, rig) {
+    const B = rig.byName;
+    const skirt = buildSkirt(J, B.hips, { rx: 0.19, rz: 0.14, length: 0.62, flare: 0.45, top: -0.01, rows: 8, cols: 22, gap: 0.42 });
+    const legs = (P) => [
+      { a: P['thigh.L'], b: P['shin.L'], r: 0.11 }, { a: P['thigh.R'], b: P['shin.R'], r: 0.11 },
+      { a: P['shin.L'], b: P['foot.L'], r: 0.075 }, { a: P['shin.R'], b: P['foot.R'], r: 0.075 },
+      { a: P['thigh.L'], b: P['thigh.R'], r: 0.15 },
+    ];
+    const neckBack = J.neck.clone().add(new THREE.Vector3(0, 0.0, -0.075));
+    const tails = [-0.045, 0.045].map((dx, i) => buildStrip(B.neck, neckBack.clone().add(new THREE.Vector3(dx, 0, 0)), new THREE.Vector3(dx * 1.5, -1, -0.12), new THREE.Vector3(1, 0, 0), 1.25 - i * 0.18, 0.11, 16, { bend: 0.35, drag: 2.6, taper: 0.35 }));
+    const torso = (P) => [
+      { a: P.spine, b: P.neck, r: 0.17 }, { a: P['upperarm.L'], b: P['forearm.L'], r: 0.07 }, { a: P['upperarm.R'], b: P['forearm.R'], r: 0.07 },
+      { a: P.hips, b: P.spine, r: 0.16 }, { a: P['thigh.L'], b: P['shin.L'], r: 0.1 }, { a: P['thigh.R'], b: P['shin.R'], r: 0.1 },
+    ];
+    return [
+      { cloth: skirt, color: [0.016, 0.017, 0.022], sheen: 0.5, colliders: legs, tear: 1 },
+      ...tails.map((t) => ({ cloth: t, color: [0.34, 0.006, 0.009], sheen: 0.7, colliders: torso, tear: 0.5 })),
+    ];
+  },
 };
 
 // ==========================================================================================
@@ -334,4 +362,13 @@ export const GOU = {
   },
   parts(J, rig) { return standardParts(J, rig, { neckCut: J.neck.y + 0.052, body: 0.0072, head: 0.0032, hand: 0.0038, wristT: 0.9, headTop: 0.34 }); },
   lodParts() { return [{ name: 'lod', cell: 0.018, bounds: [-1.0, -0.02, -0.4, 1.0, 2.35, 0.4], project: 1 }]; },
+  cloth(J, rig) {
+    const B = rig.byName;
+    const knot = J.hips.clone().add(new THREE.Vector3(0.11, 0.0, 0.16));
+    const strips = [0, 1].map((i) => buildStrip(B.hips, knot.clone().add(new THREE.Vector3(i * 0.07, 0, 0.01)), new THREE.Vector3(0.1 + i * 0.1, -1, 0.15), new THREE.Vector3(1, 0, 0), 0.62 - i * 0.12, 0.13, 10, { bend: 0.4, drag: 2.0, taper: 0.25 }));
+    const legs = (P) => [
+      { a: P['thigh.L'], b: P['shin.L'], r: 0.16 }, { a: P['thigh.R'], b: P['shin.R'], r: 0.16 }, { a: P.hips, b: P.spine, r: 0.24 },
+    ];
+    return strips.map((c) => ({ cloth: c, color: [0.18, 0.024, 0.012], sheen: 0.6, colliders: legs, tear: 0.5 }));
+  },
 };

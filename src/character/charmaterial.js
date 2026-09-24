@@ -245,7 +245,7 @@ if (en > 0.001) {
     diffuseColor.rgb = alb;
   }
 }
-gEmit += uEyeColor * irisMask * uEyeGlow * 30.0;
+gEmit += uEyeColor * irisMask * (1.0 - smoothstep(0.955, 0.97, dot(normalize(bp - (distance(bp, uEyeL) < distance(bp, uEyeR) ? uEyeL : uEyeR)), normalize(vec3(0.0, -0.03, 1.0))))) * uEyeGlow * 1.6;
 gEmit += uFlashColor * uFlash;
 `)
       .replace('#include <roughnessmap_fragment>', `float roughnessFactor = gRough;`)

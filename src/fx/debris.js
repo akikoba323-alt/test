@@ -73,6 +73,7 @@ export class Debris {
   }
 
   reset() {
+    for (const b of this.bodies) if (b.prop) b.prop.userData.body = null;
     for (const b of this.batches) { this.group.remove(b.mesh); b.mesh.geometry.dispose(); }
     this.batches.length = 0;
     this.bodies.length = 0;
@@ -295,7 +296,7 @@ export class Debris {
   shatterGlass(pos, size, quat, opts, camD) {
     const fx = this.fx, rng = this.rng;
     const area = size.x * size.y;
-    const n = camD < 40 ? Math.round(Math.min(28, 6 + area * 3)) : camD < 120 ? Math.round(Math.min(10, 3 + area)) : 2;
+    const n = camD < 30 ? Math.round(Math.min(22, 5 + area * 2.5)) : camD < 70 ? Math.round(Math.min(6, 2 + area * 0.5)) : camD < 140 ? 1 : 0;
     const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(quat);
     const blast = opts.blast;
     const out = blast ? normal.clone().multiplyScalar(Math.sign(normal.dot(_v.copy(pos).sub(blast.pos))) || 1) : normal;
@@ -320,7 +321,7 @@ export class Debris {
       this.writeShard(b);
     }
     // glitter
-    const gl = camD < 60 ? Math.round(20 + area * 8) : Math.round(6 + area * 2);
+    const gl = camD < 60 ? Math.round(16 + area * 6) : Math.round(4 + area * 1.5);
     fx.burst(PT.GLASS, gl, pos, { dir: out, cone: 1.2, speed: (blast ? blast.speed : 3) * 0.9, life: 2.2, size: 0.04, spread: Math.max(size.x, size.y) * 0.8 });
     this.events.push({ t: this.time, pos: pos.clone(), speed: 10, kind: 'glass', mass: area, camD });
     return null;
@@ -335,6 +336,13 @@ export class Debris {
 
   // Cars and other props as rigid bodies
   addProp(obj, half, mass, opts = {}) {
+    if (obj.userData.body && obj.userData.body.alive) {
+      const b0 = obj.userData.body;
+      if (opts.vel) b0.v.copy(opts.vel);
+      if (opts.spin) b0.w.copy(opts.spin);
+      b0.asleep = false; b0.sleep = 0;
+      return b0;
+    }
     const b = this.newBody();
     if (!b) return null;
     b.prop = obj; b.kind = 1;
@@ -376,7 +384,7 @@ export class Debris {
     for (let s = 0; s < n; s++) this.substep(h, time - dt + (s + 1) * h);
     // write render transforms
     for (const b of this.bodies) {
-      if (!b.alive || (b.asleep && !b.justSlept)) continue;
+      if (!b.alive || (b.asleep && !b.justSlept && !b.follow)) continue;
       b.justSlept = false;
       if (b.batch) { this.writeChunk(b); b.batch.dirty = true; }
       else if (b.shard >= 0) this.writeShard(b);
@@ -392,7 +400,25 @@ export class Debris {
     const g = -9.81;
     const corners = this._corners || (this._corners = Array.from({ length: 8 }, () => new THREE.Vector3()));
     for (const b of this.bodies) {
-      if (!b.alive || b.asleep) continue;
+      if (!b.alive) continue;
+      if (b.follow) {
+        // kinematic: carried by a fighter (blends in from the body's current pose)
+        const f = b.follow;
+        let np = f.fighter.anim.bonePos[f.bone].clone().add(new THREE.Vector3(...f.offset).applyQuaternion(f.fighter.anim.rootQuat));
+        if (f.bone2) np.add(f.fighter.anim.bonePos[f.bone2]).sub(f.fighter.anim.bonePos[f.bone]).multiplyScalar(0.5).add(f.fighter.anim.bonePos[f.bone]).add(new THREE.Vector3(...f.offset).applyQuaternion(f.fighter.anim.rootQuat)).sub(np).add(np);
+        if (f.t0 !== undefined && time < f.t0 + f.blend) {
+          const k = Math.max(0, Math.min(1, (time - f.t0) / f.blend));
+          const kk = k * k * (3 - 2 * k);
+          if (!f.startP) { f.startP = b.p.clone(); f.startQ = b.q.clone(); }
+          np = f.startP.clone().lerp(np, kk);
+          if (f.quat) { const tq = f.fighter.anim.rootQuat.clone().multiply(f.quat); b.q.copy(f.startQ).slerp(tq, kk); }
+        } else if (f.quat) b.q.copy(f.fighter.anim.rootQuat).multiply(f.quat);
+        b.v.copy(np).sub(b.p).divideScalar(Math.max(h, 1e-4));
+        b.p.copy(np);
+        b.w.set(0, 0, 0); b.asleep = false;
+        continue;
+      }
+      if (b.asleep) continue;
       b.age += h;
       b.v.y += g * h;
       // light air drag (stronger for small pieces)
@@ -413,8 +439,10 @@ export class Debris {
           b.w.addScaledVector(_v.set(this.rng.next() - 0.5, this.rng.next() - 0.5, this.rng.next() - 0.5), 12);
         }
       }
-      // contacts: corners vs floor
-      const floorY = this.floorFn(b.p.x, b.p.y + b.r, b.p.z);
+      // contacts: corners vs floor (cached lookup; refreshed every few steps)
+      if (!(b.floorAge > 0) || Math.abs(b.p.y - b.floorQY) > 1.5) { b.floorCache = this.floorFn(b.p.x, b.p.y + b.r, b.p.z); b.floorAge = 6; b.floorQY = b.p.y; }
+      b.floorAge--;
+      const floorY = b.floorCache;
       b.floorY = floorY;
       if (b.p.y - b.r < floorY) {
         let deepest = 0, ci = -1;
@@ -431,7 +459,7 @@ export class Debris {
         }
       }
       // building shells: push out horizontally
-      for (const o of this.obstacles) {
+      if (b.shard < 0) for (const o of this.obstacles) {
         if (b.p.x > o[0] && b.p.x < o[3] && b.p.y > o[1] && b.p.y < o[4] && b.p.z > o[2] && b.p.z < o[5]) {
           const dx0 = b.p.x - o[0], dx1 = o[3] - b.p.x, dz0 = b.p.z - o[2], dz1 = o[5] - b.p.z;
           const m = Math.min(dx0, dx1, dz0, dz1);

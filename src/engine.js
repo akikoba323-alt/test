@@ -176,7 +176,7 @@ export class Engine {
     fx = { ...fx, dust: [...(fx.dust || []), ...(F.dust || [])], vlights: [...(fx.vlights || []), ...(F.lights || [])], shocks: [...(fx.shocks || []), ...(F.shocks || [])], heat: F.heat, flash: (fx.flash || 0) + (F.flash || 0), flashColor: F.flashColor, impact: fx.impact || F.impact, hooks };
     this.post.render(this.scene, cam, {
       time: this.time,
-      exposure: L.exposure,
+      exposure: L.exposure * Math.pow(2, fx.exposure || 0),
       sun: { dir: this.sunDir, color: this.sunColor, intensity: this.sunIntensity, light: this.sun },
       vol: { on: true, density: L.fogDensity, height: 0, falloff: L.fogFalloff, ambient: L.fogAmbient, tint: L.fogTint, aniso: 0.7, maxDist: L.fogMaxDist, sunScatter: L.sunScatter, dust: fx.dust || [], lights: fx.vlights || [] },
       dof: fx.dof || { focus: 20, aperture: 0 },
@@ -187,7 +187,7 @@ export class Engine {
       ca: fx.ca ?? 0.0012, lensK: fx.lensK ?? 0, vignette: 0.38, grain: 0.035,
       shocks: fx.shocks || [], heat: fx.heat || [],
       impact: fx.impact, flash: fx.flash, flashColor: fx.flashColor, fade: fx.fade, fadeWhite: fx.fadeWhite,
-      speedLines: fx.speedLines, cut: fx.cut,
+      speedLines: fx.speedLines, cut: fx.cut, streak: fx.streak,
     }, fx.hooks || {});
   }
 }

@@ -32,6 +32,7 @@ export class FX {
       this.pool.push(L);
     }
     this.time = 0;
+    this.play = 0;
     this.frameFx = {};
   }
 
@@ -60,9 +61,10 @@ export class FX {
     this.cracks.push({ x: pos.x, y: pos.y, z: pos.z, t0: this.time, radius, grow: opts.grow ?? 0.12, intensity: opts.intensity ?? 1, glow: opts.glow ?? 0, seed: this.rng.next() * 10, life: opts.life ?? 1e9 });
   }
   scorch(pos, radius) { this.scorches.push({ x: pos.x, y: pos.y, z: pos.z, r: radius, t0: this.time }); }
-  flash(amount, life = 0.12, color = [1, 1, 1]) { this.flashes.push({ t0: this.time, life, amount, color }); }
-  impactFrame(dur, mode = 0, amount = 1) { this.impacts.push({ t0: this.time, dur, mode, amount }); }
-  shake(amount, halflife = 0.12, dir = null) { this.shakes.push({ t0: this.time, amount, halflife, dir }); }
+  // screen-space effects run on the playback clock so slow motion doesn't stretch them
+  flash(amount, life = 0.12, color = [1, 1, 1]) { this.flashes.push({ t0: this.play, life, amount, color }); }
+  impactFrame(dur, mode = 0, amount = 1) { this.impacts.push({ t0: this.play, dur, mode, amount }); }
+  shake(amount, halflife = 0.12, dir = null) { this.shakes.push({ t0: this.play, amount, halflife, dir }); }
   heat(pos, radius, life) { this.heats.push({ x: pos.x, y: pos.y, z: pos.z, r: radius, t0: this.time, life }); }
 
   // ---------------------------------------------------------------------------------------
@@ -89,24 +91,28 @@ export class FX {
     const s = strength;
     const color = opts.color || [1.0, 0.8, 0.55];
     if (kind === 'metal' || opts.sparks) this.burst(PT.SPARK, Math.round(20 + 60 * s), pos, { dir, cone: 1.2, speed: 14 + 20 * s, life: 0.5, size: 0.03, spread: 0.1 });
-    this.burst(PT.DUST, Math.round(6 + 26 * s), pos, { speed: 2 + 6 * s, life: 1.4 + 1.5 * s, size: 0.5 + 0.8 * s, spread: 0.3 });
-    if (s > 0.4) this.burst(PT.RING, Math.round(10 + 30 * s), pos, { flat: 0.12, speed: 8 + 18 * s, life: 0.9 + 0.8 * s, size: 0.5 + 0.6 * s, spread: 0.2 });
-    this.light(pos, color, 25 * s + 5, 6 + 10 * s, 0.12 + 0.12 * s, 0.005);
+    // a thin puff of air/dust at the contact, heavier blows lift dust from the ground below
+    this.burst(PT.DUST, Math.round(2 + 6 * s), pos, { speed: 3 + 6 * s, life: 0.6 + 0.6 * s, size: 0.25 + 0.3 * s, spread: 0.15 });
+    if (s > 0.4) {
+      const g = new THREE.Vector3(pos.x, (opts.floor ?? 0) + 0.1, pos.z);
+      this.burst(PT.RING, Math.round(8 + 26 * s), g, { flat: 0.08, speed: 8 + 16 * s, life: 0.9 + 0.8 * s, size: 0.4 + 0.5 * s, spread: 0.3, minY: g.y });
+    }
+    this.light(pos, color, 10 * s + 3, 6 + 10 * s, 0.06 + 0.08 * s, 0.004);
     if (s > 0.25) this.shock(pos, { speed: 90 + 90 * s, maxR: 4 + 26 * s, thick: 0.6 + 0.8 * s, strength: 0.4 + 0.8 * s, bright: 0.12 + 0.3 * s, push: 0.5 + s });
-    if (s > 0.6) { this.dust(pos, 1, 3 + 6 * s, 0.03 + 0.05 * s, 3 + 3 * s, 2.5); }
+    if (s > 0.95) { this.dust(new THREE.Vector3(pos.x, (opts.floor ?? 0) + 1, pos.z), 1, 3 + 6 * s, 0.015 + 0.02 * s, 3 + 3 * s, 2.5); }
     this.shake(0.1 + 0.6 * s, 0.08 + 0.1 * s, dir);
   }
 
   groundSlam(pos, strength, opts = {}) {
     const s = strength;
     const g = new THREE.Vector3(pos.x, (opts.floor ?? 0) + 0.05, pos.z);
-    this.burst(PT.RING, Math.round(40 + 120 * s), g, { flat: 0.06, speed: 12 + 40 * s, life: 1.2 + 1.5 * s, size: 0.8 + 1.2 * s, spread: 0.8, minY: g.y });
-    this.burst(PT.DUST, Math.round(30 + 80 * s), g, { up: 0.9, speed: 4 + 14 * s, life: 2.5 + 3 * s, size: 1.0 + 1.6 * s, spread: 2 * s });
+    this.burst(PT.RING, Math.round(24 + 70 * s), g, { flat: 0.04, speed: 12 + 40 * s, life: 1.0 + 1.2 * s, size: 0.7 + 1.0 * s, spread: 0.8, minY: g.y });
+    this.burst(PT.DUST, Math.round(14 + 40 * s), g, { up: 0.9, speed: 4 + 14 * s, life: 1.8 + 2 * s, size: 0.8 + 1.3 * s, spread: 2 * s });
     this.burst(PT.CHIP, Math.round(30 + 140 * s), g, { up: 1, cone: 1.1, dir: new THREE.Vector3(0, 1, 0), speed: 6 + 18 * s, life: 2.5, size: 0.05 + 0.08 * s, spread: 1.5 * s });
     this.burst(PT.SPARK, Math.round(10 + 30 * s), g, { up: 0.6, speed: 10 + 16 * s, life: 0.5, size: 0.03, spread: 0.5 });
     this.shock(g, { speed: 70 + 120 * s, maxR: 10 + 60 * s, thick: 1.2 + 1.5 * s, strength: 0.6 + s, bright: 0.25 + 0.3 * s, push: 1 + 2 * s });
-    this.light(g.clone().setY(g.y + 1), opts.color || [1.0, 0.75, 0.5], 50 * s + 10, 12 + 20 * s, 0.2 + 0.2 * s, 0.005);
-    this.dust(g, 2, 6 + 22 * s, 0.05 + 0.06 * s, 6 + 8 * s, 1.6);
+    this.light(g.clone().setY(g.y + 1), opts.color || [1.0, 0.75, 0.5], 18 * s + 5, 12 + 20 * s, 0.12 + 0.12 * s, 0.004);
+    this.dust(g, 2, 6 + 22 * s, 0.018 + 0.02 * s, 5 + 6 * s, 1.6);
     this.crack(g, 3 + 16 * s, { grow: 0.25 + 0.2 * s, intensity: 1, glow: opts.glow ?? 0 });
     this.shake(0.5 + 0.8 * s, 0.15 + 0.2 * s);
   }
@@ -155,7 +161,7 @@ export class FX {
     this.activeLights = active.slice(0, 8);
     for (let i = 0; i < this.pool.length; i++) {
       const L = this.pool[i], a = active[i];
-      if (a) { L.position.set(a.x, a.y, a.z); L.color.setRGB(a.color[0], a.color[1], a.color[2]); L.intensity = a.intensity * 12; L.distance = a.r * 2.2; }
+      if (a) { L.position.set(a.x, a.y, a.z); L.color.setRGB(a.color[0], a.color[1], a.color[2]); L.intensity = a.intensity * 4; L.distance = a.r * 2.2; }
       else L.intensity = 0;
     }
     // dust volumes
@@ -166,7 +172,7 @@ export class FX {
       if (t > d.life) { this.dusts.splice(i, 1); continue; }
       if (t < 0) continue;
       const r = d.r0 + (d.r1 - d.r0) * (1 - Math.exp(-t * d.grow));
-      const dens = d.density * smoothstep(0, 0.15, t) * (1 - smoothstep(d.life * 0.5, d.life, t)) * Math.pow(d.r1 / Math.max(r, 0.5), 0.5) * 0.6;
+      const dens = Math.min(0.05, d.density * smoothstep(0, 0.15, t) * (1 - smoothstep(d.life * 0.5, d.life, t)) * Math.pow(d.r1 / Math.max(r, 0.5), 0.5) * 0.45);
       dustOut.push({ x: d.x, y: d.y + t * 0.4, z: d.z, r, density: dens, noise: 0.85, heat: d.heat * Math.exp(-t * 0.8) });
     }
     dustOut.sort((a, b) => b.density * b.r - a.density * a.r);
@@ -184,10 +190,11 @@ export class FX {
     const sp = damageUniforms.uScorchP.value;
     const ss = this.scorches.filter((c) => time >= c.t0).slice(-16);
     for (let i = 0; i < 16; i++) { const c = ss[i]; if (!c) sp[i].set(0, -1e5, 0, 0); else sp[i].set(c.x, c.y, c.z, c.r * clamp01((time - c.t0) * 4)); }
-    // flashes / impact frames / shake
+    // flashes / impact frames / shake (playback clock)
+    const ptime = this.play;
     let flash = 0; const fcol = [0, 0, 0];
     for (let i = this.flashes.length - 1; i >= 0; i--) {
-      const f = this.flashes[i]; const t = time - f.t0;
+      const f = this.flashes[i]; const t = ptime - f.t0;
       if (t > f.life * 6) { this.flashes.splice(i, 1); continue; }
       if (t < 0) continue;
       const a = f.amount * Math.exp(-t / f.life);
@@ -195,13 +202,13 @@ export class FX {
     }
     let impact = null;
     for (let i = this.impacts.length - 1; i >= 0; i--) {
-      const f = this.impacts[i]; const t = time - f.t0;
+      const f = this.impacts[i]; const t = ptime - f.t0;
       if (t > f.dur + 1) { this.impacts.splice(i, 1); continue; }
       if (t >= 0 && t < f.dur) impact = { mode: f.mode, amount: f.amount };
     }
     let trauma = 0;
     for (let i = this.shakes.length - 1; i >= 0; i--) {
-      const s = this.shakes[i]; const t = time - s.t0;
+      const s = this.shakes[i]; const t = ptime - s.t0;
       if (t > s.halflife * 10) { this.shakes.splice(i, 1); continue; }
       if (t >= 0) trauma += s.amount * Math.pow(0.5, t / s.halflife);
     }

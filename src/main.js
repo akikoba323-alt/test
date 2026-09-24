@@ -9,6 +9,11 @@ async function boot() {
       await runCityTest(canvas, W, H, params);
       return;
     }
+    if (params.get('test') === 'film') {
+      const { runFilmTest } = await import('./testfilm.js');
+      await runFilmTest(canvas, W, H, params);
+      return;
+    }
     if (params.get('test') === 'fx') {
       const { runFxTest } = await import('./testfx.js');
       await runFxTest(canvas, W, H, params);

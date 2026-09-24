@@ -15,7 +15,7 @@ const TYPE_TABLE = [
   [1.0, 0.15, 0.0, 0.0, 0.35, 0], // CHIP
   [1.0, 0.25, 0.0, 0.1, 0.25, 0], // GLASS
   [0.0, 2.5, 3.0, 1.5, 0.0, 1],   // FIRE
-  [0.0, 3.5, 0.2, 0.6, 0.0, 1],   // RING (ground shock dust)
+  [0.06, 3.2, 0.0, 0.45, 0.0, 1], // RING (ground shock dust)
   [1.0, 0.6, 0.0, 0.2, 0.1, 1],   // WATER
   [0.25, 3.0, 0.0, 2.5, 0.0, 1],  // PAPER
   [0.0, 2.0, 0.3, 2.0, 0.0, 1],   // ENERGY
@@ -157,7 +157,7 @@ void main() {
   int type = int(Pr.x + 0.5);
   float size = Pr.y;
   // growth curves
-  if (type == 0 || type == 7 || type == 11) size *= 0.35 + 1.65 * (1.0 - exp(-age * 1.6)) + age * 0.08;
+  if (type == 0 || type == 7 || type == 11) size *= 0.4 + 2.1 * (1.0 - exp(-age * 1.4)) + age * 0.12;
   else if (type == 1 || type == 15) size *= 0.5 + age * 0.6;
   else if (type == 6) size *= (0.6 + 0.8 * sin(3.1416 * min(t * 1.3, 1.0)));
   else if (type == 12) size *= 0.5 + 2.5 * t;
@@ -249,21 +249,24 @@ void main() {
     float d2 = dot(d, d);
     float R = uLPos[i].w;
     float w = clamp(1.0 - d2 / (R * R), 0.0, 1.0);
-    light += uLCol[i].rgb * uLCol[i].a * w * w / (1.0 + d2 * 0.05);
+    light += uLCol[i].rgb * uLCol[i].a * w * w / (1.0 + d2 * 0.25) * 0.3;
   }
   if (type == 0 || type == 1 || type == 7 || type == 11 || type == 12 || type == 15) {
     // billowing volume: noise-eroded soft sphere with a fake normal for sun shading
-    vec3 np = vec3(p * 0.8, vSeed * 17.0 + vLifeAge * 0.18);
-    float n = texture(tNoise, np * 0.9).g * 0.65 + texture(tNoise, np * 2.3 + 3.1).r * 0.35;
-    float shape = smoothstep(1.0, 0.25, r + (n - 0.5) * 0.9);
+    vec3 np = vec3(p * 0.7, vSeed * 17.0 + vLifeAge * 0.14);
+    float n = texture(tNoise, np * 0.9).g * 0.6 + texture(tNoise, np * 2.3 + 3.1).r * 0.4;
+    float edge = r + (n - 0.5) * 0.75 * smoothstep(0.1, 0.9, r);
+    float shape = smoothstep(1.0, 0.0, edge);
+    shape *= shape * (0.65 + 0.7 * n);
     vec3 N = normalize(vec3(p, sqrt(max(0.0, 1.0 - r * r)) + 0.3));
     float sunL = 0.45 + 0.55 * clamp(dot(N, normalize(vec3(uSunDir.x, uSunDir.y, 0.4))), 0.0, 1.0);
-    vec3 base = type == 1 ? vec3(0.07, 0.065, 0.06) : type == 12 ? vec3(0.85, 0.87, 0.9) : type == 15 ? vec3(0.25, 0.24, 0.23) : vec3(0.5, 0.46, 0.41);
+    vec3 base = type == 1 ? vec3(0.06, 0.055, 0.05) : type == 12 ? vec3(0.8, 0.82, 0.86) : type == 15 ? vec3(0.22, 0.21, 0.2) : vec3(0.36, 0.33, 0.3);
     if (type == 0 || type == 7 || type == 11) base *= 0.85 + 0.3 * h11(vSeed * 91.0);
     col = base * (light + uSunCol * sunL * vSunVis * (type == 1 ? 0.35 : 0.8)) ;
     float fadeIn = smoothstep(0.0, 0.06, t), fadeOut = 1.0 - smoothstep(0.55, 1.0, t);
-    float dens = type == 1 ? 0.75 : type == 12 ? 0.45 : type == 7 ? 0.5 : 0.6;
-    a = shape * dens * fadeIn * fadeOut * soft;
+    float dens = type == 1 ? 0.7 : type == 12 ? 0.35 : type == 7 ? 0.16 : 0.36;
+    float nearFade = smoothstep(0.8, 3.2, vViewZ);
+    a = shape * dens * fadeIn * fadeOut * soft * nearFade;
     col *= a;
   } else if (type == 2 || type == 13) {
     // spark streak / flash

@@ -475,7 +475,7 @@ void main() {
     float m = texture(tMask, uv).r;
     float lumC = luma(c);
     float z = linDepth(texture(tDepth, uv).r, uNear, uFar);
-    float fg = max(m, step(lumC, uImpactThresh));
+    float fg = step(0.5, m);
     vec3 ink = uImpactMode < 0.5 ? vec3(0.0) : uImpactMode < 1.5 ? vec3(1.0) : vec3(0.02, 0.0, 0.0);
     vec3 paper = uImpactMode < 0.5 ? vec3(1.0) : uImpactMode < 1.5 ? vec3(0.0) : uImpactTint;
     vec3 imp = mix(paper, ink, fg);

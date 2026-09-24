@@ -271,7 +271,7 @@ export class City {
   buildCars() {
     const r = new RNG(5);
     const specs = [
-      ['sedan', -34, 5.4, 0.08], ['taxi', -26, -9.0, 3.1], ['van', 24, 9.0, 0.05], ['sedan', 38, 1.8, -0.04], ['suv', 52, -5.4, 3.2], ['truck', 70, -12, 3.14],
+      ['sedan', 4.2, 7.0, 0.35], ['taxi', -26, -9.0, 3.1], ['van', 25.5, 1.2, 1.45], ['sedan', 38, 1.8, -0.04], ['suv', 52, -5.4, 3.2], ['truck', 70, -12, 3.14],
       ['sedan', -58, -1.8, 3.2], ['taxi', 6, 38, 1.57], ['sedan', -5, -40, -1.6], ['van', -7, 60, 1.55], ['suv', 5, -62, -1.5], ['sedan', 90, 5.4, 0.1],
       ['taxi', -84, 9, 0.02], ['sedan', 3, 24, 1.3], ['suv', -18, 12, 0.6], ['sedan', 16, -20.5, 0.0],
     ];
@@ -283,6 +283,7 @@ export class City {
       car.mesh.rotation.y = rot;
       car.home = { pos: car.mesh.position.clone(), rot };
       car.u.uHazard.value = r.next() < 0.6 ? 1 : 0;
+      car.story = this.cars.length === 0 || this.cars.length === 2;
       this.cars.push(car);
       this.group.add(car.mesh);
     }
