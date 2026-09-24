@@ -1,0 +1,21 @@
+[
+  { "name": "idle", "src": "140_07", "from": 0.5, "to": 10.0, "notes": "athletic ready stance, subtle weight shifts" },
+  { "name": "run", "src": "127_03", "from": 0.5, "to": 2.75, "notes": "run cycle" },
+  { "name": "cross", "src": "13_17", "from": 1.55, "to": 2.7, "notes": "boxing right cross" },
+  { "name": "jabcross", "src": "13_17", "from": 2.75, "to": 3.75, "notes": "jab, cross" },
+  { "name": "round", "src": "135_07", "from": 0.35, "to": 2.2, "notes": "mawashi-geri right, lands forward stance" },
+  { "name": "side", "src": "135_11", "from": 2.3, "to": 3.7, "notes": "yoko-geri right" },
+  { "name": "duck", "src": "127_29", "from": 0.37, "to": 1.5, "notes": "running duck under" },
+  { "name": "tornado", "src": "88_06", "from": 0.08, "to": 1.9, "notes": "jump spin kick" },
+  { "name": "flurry", "src": "80_10", "from": 1.05, "to": 4.85, "notes": "shadow boxing jab/cross stream" },
+  { "name": "backflip", "src": "87_03", "from": 0.5, "to": 2.05 },
+  { "name": "sideflip", "src": "90_08", "from": 1.0, "to": 2.8 },
+  { "name": "runleap", "src": "49_04", "from": 0.0, "to": 2.1 },
+  { "name": "haymaker", "src": "14_02", "from": 7.4, "to": 9.4, "notes": "big overhand right" },
+  { "name": "lift", "src": "115_06", "from": 0.3, "to": 1.7, "notes": "squat and lift a load to the chest" },
+  { "name": "throw", "src": "111_33", "from": 5.3, "to": 8.0, "notes": "wind-up and throw" },
+  { "name": "getup", "src": "140_08", "from": 1.2, "to": 5.6, "notes": "get up from lying on the back" },
+  { "name": "faceplant", "src": "90_16", "from": 3.2, "to": 4.3, "notes": "fall flat face down" },
+  { "name": "punches", "src": "143_23", "from": 0.3, "to": 3.0, "notes": "jab, cross, jab, cross" },
+  { "name": "spinsweep", "src": "78_13", "from": 0.05, "to": 1.45 }
+]

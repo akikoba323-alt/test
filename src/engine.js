@@ -179,12 +179,14 @@ export class Engine {
         self.scene.overrideMaterial = null;
       },
     };
+    const dbg = (typeof window !== 'undefined' && window.__dbg) || {};
+    if (dbg.noPart) delete hooks.renderParticles;
     fx = { ...fx, dust: [...(fx.dust || []), ...(F.dust || [])], vlights: [...(fx.vlights || []), ...(F.lights || [])], shocks: [...(fx.shocks || []), ...(F.shocks || [])], heat: F.heat, flash: (fx.flash || 0) + (F.flash || 0), flashColor: F.flashColor, impact: fx.impact || F.impact, hooks };
     this.post.render(this.scene, cam, {
       time: this.time,
       exposure: L.exposure * Math.pow(2, fx.exposure || 0),
       sun: { dir: this.sunDir, color: this.sunColor, intensity: this.sunIntensity, light: this.sun },
-      vol: { on: true, density: L.fogDensity, height: 0, falloff: L.fogFalloff, ambient: L.fogAmbient, tint: L.fogTint, aniso: 0.7, maxDist: L.fogMaxDist, sunScatter: L.sunScatter, dust: fx.dust || [], lights: fx.vlights || [] },
+      vol: { on: !dbg.noVol, density: L.fogDensity, height: 0, falloff: L.fogFalloff, ambient: L.fogAmbient, tint: L.fogTint, aniso: 0.7, maxDist: L.fogMaxDist, sunScatter: L.sunScatter, dust: fx.dust || [], lights: fx.vlights || [] },
       dof: fx.dof || { focus: 20, aperture: 0 },
       mb: fx.mb || { strength: 0.4 },
       bloom: { strength: L.bloom, threshold: 1.4, dirt: 0.5, streak: fx.streak ?? 0.15 },

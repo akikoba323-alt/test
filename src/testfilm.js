@@ -25,5 +25,20 @@ export async function runFilmTest(canvas, W, H, params) {
     console.log('frame', JSON.stringify({ P: +film.P.toFixed(3), W: +film.W.toFixed(3), shot: cam.shotName, calls: eng.renderer.info.render.calls, bodies: eng.debris.bodies.length }));
     return canvas.toDataURL('image/png');
   };
+  // fighter trajectories (world times) for choreography checks
+  window.__traj = (t0, t1, step) => {
+    const out = [];
+    film.seek(film.tm.P(t0));
+    const B = ['hips', 'head', 'chest', 'hand.L', 'hand.R', 'foot.L', 'foot.R'];
+    for (let w = t0; w <= t1 + 1e-6; w += step) {
+      film.pTarget = film.tm.P(w);
+      film.advanceTo(w, 1 / 90);
+      film.P = film.tm.P(w); film.W = w;
+      const rec = { w: +w.toFixed(3) };
+      for (const [n, f] of [['k', eng.kai], ['g', eng.gou]]) rec[n] = Object.fromEntries(B.map((b) => [b, f.anim.bonePos[b].toArray().map((v) => +v.toFixed(3))]));
+      out.push(rec);
+    }
+    return out;
+  };
   window.__ready = true;
 }

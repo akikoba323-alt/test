@@ -221,7 +221,7 @@ precision highp float;
 precision highp sampler3D;
 uniform sampler2D tDepthHalf;
 uniform sampler3D tNoise;
-uniform vec3 uSunDir, uSunCol, uAmbient, uFogColor;
+uniform vec3 uSunDir, uSunCol, uAmbient, uFogColor, uSunV;
 uniform vec4 uLPos[8];
 uniform vec4 uLCol[8];
 uniform int uLN;
@@ -260,13 +260,17 @@ void main() {
     float edge = r + (n - 0.5) * 0.75 * smoothstep(0.1, 0.9, r);
     float shape = smoothstep(1.0, 0.0, edge);
     shape *= shape * (0.65 + 0.7 * n);
-    vec3 N = normalize(vec3(p, sqrt(max(0.0, 1.0 - r * r)) + 0.3));
-    float sunL = 0.45 + 0.55 * clamp(dot(N, normalize(vec3(uSunDir.x, uSunDir.y, 0.4))), 0.0, 1.0);
+    // fake sphere normal in view space, lit by the view-space sun: wrapped diffuse + a silver
+    // lining when the sun is behind the puff (forward scattering at the thin edges)
+    vec3 N = normalize(vec3(p + (vec2(n) - 0.5) * 0.6, sqrt(max(0.0, 1.0 - r * r)) + 0.25));
+    float wrap = clamp((dot(N, uSunV) + 0.3) / 1.3, 0.0, 1.0);
+    float rim = pow(clamp(-uSunV.z, 0.0, 1.0), 2.0) * smoothstep(0.35, 1.0, r) * (1.0 - shape) * 3.0;
+    float sunL = 0.1 + 0.9 * wrap * wrap + rim;
     vec3 base = type == 1 ? vec3(0.06, 0.055, 0.05) : type == 12 ? vec3(0.8, 0.82, 0.86) : type == 15 ? vec3(0.22, 0.21, 0.2) : vec3(0.36, 0.33, 0.3);
     if (type == 0 || type == 7 || type == 11) base *= 0.85 + 0.3 * h11(vSeed * 91.0);
     col = base * (light + uSunCol * sunL * vSunVis * (type == 1 ? 0.35 : 0.8)) ;
     float fadeIn = smoothstep(0.0, 0.06, t), fadeOut = 1.0 - smoothstep(0.55, 1.0, t);
-    float dens = type == 1 ? 0.7 : type == 12 ? 0.35 : type == 7 ? 0.16 : 0.36;
+    float dens = type == 1 ? 0.7 : type == 12 ? 0.35 : type == 7 ? 0.14 : 0.3;
     float nearFade = smoothstep(0.8, 3.2, vViewZ);
     a = shape * dens * fadeIn * fadeOut * soft * nearFade;
     col *= a;
@@ -371,6 +375,7 @@ export class Particles {
         viewMatrix: { value: new THREE.Matrix4() }, projectionMatrix: { value: new THREE.Matrix4() },
         uCamPos: { value: new THREE.Vector3() }, uCamRight: { value: new THREE.Vector3() }, uCamUp: { value: new THREE.Vector3() }, uRes: { value: new THREE.Vector2() },
         uSunDir: { value: new THREE.Vector3(0, 1, 0) }, uSunCol: { value: new THREE.Vector3(1, 1, 1) }, uAmbient: { value: new THREE.Vector3(0.3, 0.3, 0.35) }, uFogColor: { value: new THREE.Vector3(0.5, 0.5, 0.5) },
+        uSunV: { value: new THREE.Vector3(0, 0, 1) },
         uLPos: { value: v4(8) }, uLCol: { value: v4(8) }, uLN: { value: 0 }, uTime: { value: 0 }, uFogDensity: { value: 0.0015 },
         tShadow: { value: null }, uShadowM: { value: [new THREE.Matrix4(), new THREE.Matrix4()] }, uCascade: { value: v4(2) }, uShadowOn: { value: 0 },
         ...interiorUniforms,
@@ -451,7 +456,7 @@ export class Particles {
       u.uShadowOn.value = 1;
     } else u.uShadowOn.value = 0;
     if (look) {
-      u.uSunDir.value.copy(look.sunDir); u.uSunCol.value.copy(look.sunCol); u.uAmbient.value.copy(look.ambient); u.uFogColor.value.copy(look.fogColor); u.uFogDensity.value = look.fogDensity;
+      u.uSunDir.value.copy(look.sunDir); u.uSunV.value.copy(look.sunDir).transformDirection(camera.matrixWorldInverse); u.uSunCol.value.copy(look.sunCol); u.uAmbient.value.copy(look.ambient); u.uFogColor.value.copy(look.fogColor); u.uFogDensity.value = look.fogDensity;
       const ls = look.lights || [];
       u.uLN.value = Math.min(ls.length, 8);
       for (let i = 0; i < u.uLN.value; i++) { const l = ls[i]; u.uLPos.value[i].set(l.x, l.y, l.z, l.r); u.uLCol.value[i].set(l.color[0], l.color[1], l.color[2], l.intensity); }

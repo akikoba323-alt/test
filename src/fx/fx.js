@@ -64,7 +64,9 @@ export class FX {
   // screen-space effects run on the playback clock so slow motion doesn't stretch them
   flash(amount, life = 0.12, color = [1, 1, 1]) { this.flashes.push({ t0: this.play, life, amount, color }); }
   impactFrame(dur, mode = 0, amount = 1) { this.impacts.push({ t0: this.play, dur, mode, amount }); }
-  shake(amount, halflife = 0.12, dir = null) { this.shakes.push({ t0: this.play, amount, halflife, dir }); }
+  // camera trauma; with an origin the jolt arrives when the pressure front reaches the camera and
+  // weakens with distance
+  shake(amount, halflife = 0.12, dir = null, origin = null) { this.shakes.push({ t0: this.play, amount, halflife, dir, origin: origin ? origin.clone() : null }); }
   heat(pos, radius, life) { this.heats.push({ x: pos.x, y: pos.y, z: pos.z, r: radius, t0: this.time, life }); }
 
   // ---------------------------------------------------------------------------------------
@@ -100,7 +102,7 @@ export class FX {
     this.light(pos, color, 10 * s + 3, 6 + 10 * s, 0.06 + 0.08 * s, 0.004);
     if (s > 0.25) this.shock(pos, { speed: 90 + 90 * s, maxR: 4 + 26 * s, thick: 0.6 + 0.8 * s, strength: 0.4 + 0.8 * s, bright: 0.12 + 0.3 * s, push: 0.5 + s });
     if (s > 0.95) { this.dust(new THREE.Vector3(pos.x, (opts.floor ?? 0) + 1, pos.z), 1, 3 + 6 * s, 0.015 + 0.02 * s, 3 + 3 * s, 2.5); }
-    this.shake(0.1 + 0.6 * s, 0.08 + 0.1 * s, dir);
+    this.shake(0.1 + 0.6 * s, 0.08 + 0.1 * s, dir, pos);
   }
 
   groundSlam(pos, strength, opts = {}) {
@@ -114,7 +116,7 @@ export class FX {
     this.light(g.clone().setY(g.y + 1), opts.color || [1.0, 0.75, 0.5], 18 * s + 5, 12 + 20 * s, 0.12 + 0.12 * s, 0.004);
     this.dust(g, 2, 6 + 22 * s, 0.018 + 0.02 * s, 5 + 6 * s, 1.6);
     this.crack(g, 3 + 16 * s, { grow: 0.25 + 0.2 * s, intensity: 1, glow: opts.glow ?? 0 });
-    this.shake(0.5 + 0.8 * s, 0.15 + 0.2 * s);
+    this.shake(0.5 + 0.8 * s, 0.15 + 0.2 * s, null, g);
   }
 
   dashTrail(from, to, strength = 1, floor = 0) {
@@ -208,7 +210,13 @@ export class FX {
     }
     let trauma = 0;
     for (let i = this.shakes.length - 1; i >= 0; i--) {
-      const s = this.shakes[i]; const t = ptime - s.t0;
+      const s = this.shakes[i];
+      if (s.origin && s.delay === undefined && camera) {
+        const d = camera.position.distanceTo(s.origin);
+        s.delay = d / 240;
+        s.amount *= 1 / (1 + Math.pow(d / 28, 1.3));
+      }
+      const t = ptime - s.t0 - (s.delay || 0);
       if (t > s.halflife * 10) { this.shakes.splice(i, 1); continue; }
       if (t >= 0) trauma += s.amount * Math.pow(0.5, t / s.halflife);
     }

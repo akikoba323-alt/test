@@ -158,8 +158,11 @@ void archSurface(float kind, vec3 P, vec3 N, vec3 L, vec3 S, vec3 tint, float se
       float panel = step(abs(lp.x), 0.12) * step(abs(lp.y), 0.25);
       float flick = 1.0;
       if (damage > 0.3) flick = step(0.35, fract(sin(floor(uTime * 12.0 + seed * 91.0) * 12.9898) * 43758.5)) * (0.4 + 0.6 * step(0.5, h11(floor(uTime * 3.0) + seed)));
-      float on = uPower * step(damage, 0.85) * flick;
-      emit = vec3(1.0, 0.97, 0.9) * panel * on * 6.0;
+      // office zones: some bays dark, lit ones vary in colour temperature and output
+      float zone = h11(seed * 13.7 + 0.31);
+      float on = uPower * step(damage, 0.85) * flick * step(0.38, zone);
+      vec3 lampC = mix(vec3(1.0, 0.9, 0.76), vec3(0.9, 0.96, 1.0), h11(seed * 5.3));
+      emit = lampC * panel * on * (2.2 + 1.2 * zone);
       alb = mix(alb, vec3(0.9), panel);
     } else {
       alb = vec3(0.44, 0.43, 0.41) * (0.8 + 0.3 * big); rough = 0.88; bump = fine * 0.003;

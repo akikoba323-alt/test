@@ -8,6 +8,7 @@ async function boot() {
     if (test === 'film') { const { runFilmTest } = await import('./testfilm.js'); await runFilmTest(canvas, W, H, params); return; }
     if (test === 'city') { const { runCityTest } = await import('./testcity.js'); await runCityTest(canvas, W, H, params); return; }
     if (test === 'fx') { const { runFxTest } = await import('./testfx.js'); await runFxTest(canvas, W, H, params); return; }
+    if (test === 'mocap') { const { runMocapTest } = await import('./testmocap.js'); await runMocapTest(canvas, W, H, params); return; }
     if (test === 'char') { const { runCharTest } = await import('./testchar.js'); await runCharTest(canvas, W, H, params); return; }
     if (params.has('render')) { const { runRender } = await import('./render.js'); await runRender(canvas, W, H, params); return; }
     const { runApp } = await import('./app.js');

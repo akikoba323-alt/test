@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { easeFn, clamp, clamp01, Spring3, DEG, smoothstep } from '../core/math.js';
 import { quatXYZ } from './skeleton.js';
+import { MOCAP_BONES, getClip, sampleClip, makePose } from '../mocap/clips.js';
 
 // ------------------------------------------------------------------------------------------
 // Track: channel -> sorted keys {t, v, e}. Numbers and arrays interpolate (eased by the
@@ -52,6 +53,7 @@ function sampleChannel(c, t, smooth, prevOut) {
   const a = c[i], b = c[i + 1];
   const v0 = a.v, v1 = b.v;
   if (typeof v0 === 'string' || typeof v0 === 'boolean' || (v0 && typeof v0 === 'object' && !Array.isArray(v0))) return v0;
+  if (typeof v0 !== typeof v1 || Array.isArray(v0) !== Array.isArray(v1)) return v0; // mixed kinds step
   const u = b.t > a.t ? b.e(clamp01((t - a.t) / (b.t - a.t))) : 1;
   if (typeof v0 === 'number') return v0 + (v1 - v0) * u;
   const out = Array.isArray(prevOut) && prevOut.length === v0.length ? prevOut : new Array(v0.length);
@@ -85,7 +87,7 @@ function frameRotation(offLocal, dir, xAxis, out) {
   _zl.crossVectors(_xl, _yl);
   _yw.copy(dir).normalize();
   _xw.copy(xAxis).addScaledVector(_yw, -xAxis.dot(_yw));
-  if (_xw.lengthSq() < 1e-8) _xw.set(1, 0, 0).addScaledVector(_yw, -_yw.x);
+  if (_xw.lengthSq() < 1e-8) { if (Math.abs(_yw.x) < 0.9) _xw.set(1, 0, 0).addScaledVector(_yw, -_yw.x); else _xw.set(0, 0, 1).addScaledVector(_yw, -_yw.z); }
   _xw.normalize();
   _zw.crossVectors(_xw, _yw);
   _m.makeBasis(_xw, _yw, _zw);
@@ -112,7 +114,7 @@ export function solveTwoBone(upper, lower, end, target, pole, isLeg, weight = 1)
   d = clamp(d, Math.abs(a - b) + 1e-4, a + b - 1e-4);
   const cosA = clamp((a * a + d * d - b * b) / (2 * a * d), -1, 1), sinA = Math.sqrt(1 - cosA * cosA);
   _v.copy(pole).addScaledVector(_u, -pole.dot(_u));
-  if (_v.lengthSq() < 1e-8) _v.set(0, 0, 1).addScaledVector(_u, -_u.z);
+  if (_v.lengthSq() < 1e-8) { if (Math.abs(_u.z) < 0.9) _v.set(0, 0, 1).addScaledVector(_u, -_u.z); else _v.set(0, 1, 0).addScaledVector(_u, -_u.y); }
   _v.normalize();
   _E.copy(S).addScaledVector(_u, a * cosA).addScaledVector(_v, a * sinA);
   _x.crossVectors(_u, _v).multiplyScalar(isLeg ? -1 : 1);
@@ -133,7 +135,8 @@ export function solveTwoBone(upper, lower, end, target, pole, isLeg, weight = 1)
 
 // ------------------------------------------------------------------------------------------
 const BODY_BONES = ['hips', 'spine', 'chest', 'neck', 'head', 'jaw', 'clavicle.L', 'clavicle.R', 'upperarm.L', 'upperarm.R', 'forearm.L', 'forearm.R', 'hand.L', 'hand.R', 'thigh.L', 'thigh.R', 'shin.L', 'shin.R', 'foot.L', 'foot.R', 'toe.L', 'toe.R'];
-const tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3(), tmpQ = new THREE.Quaternion(), tmpE = new THREE.Euler();
+const tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3(), tmpQ = new THREE.Quaternion(), tmpQ2 = new THREE.Quaternion(), tmpE = new THREE.Euler();
+const _hv = new THREE.Vector3(), _hq = new THREE.Quaternion(), _yq = new THREE.Quaternion(), _up = new THREE.Vector3(0, 1, 0);
 
 export class Animator {
   constructor(fighter) {
@@ -149,7 +152,14 @@ export class Animator {
       L: { pos: new THREE.Vector3(), planted: true, stepping: false, from: new THREE.Vector3(), to: new THREE.Vector3(), t0: 0, dur: 0.2, lift: 0.06, yaw: 0, fromYaw: 0, toYaw: 0, init: false },
       R: { pos: new THREE.Vector3(), planted: true, stepping: false, from: new THREE.Vector3(), to: new THREE.Vector3(), t0: 0, dur: 0.2, lift: 0.06, yaw: 0, fromYaw: 0, toYaw: 0, init: false },
     };
-    this.springs = { hips: new Spring3(3.2, 0.45), spine: new Spring3(3.6, 0.4), chest: new Spring3(4.0, 0.38), head: new Spring3(5.0, 0.35) };
+    // hit-reaction springs: stiff and near-critically damped (a blow snaps the body, it doesn't wobble)
+    this.springs = { hips: new Spring3(5.5, 0.8), spine: new Spring3(6.0, 0.78), chest: new Spring3(6.5, 0.75), head: new Spring3(8.0, 0.7) };
+    // mocap performance layer
+    const P = fighter.model.P;
+    this.legLen = P.thighL + P.shinL;
+    this.perf = [];
+    this.mA = makePose(); this.mB = makePose();
+    this.mRes = { w: 0, q: MOCAP_BONES.map(() => new THREE.Quaternion()), hips: new THREE.Vector3(), hipsQ: new THREE.Quaternion(), contact: 0 };
     this.bonePos = {};
     this.boneVel = {};
     this.prevPos = {};
@@ -174,9 +184,8 @@ export class Animator {
     return out.set(p[0], p[1], p[2]).applyQuaternion(this.yawQuat).add(this.groundPos);
   }
 
-  evaluate(t, dt) {
-    const f = this.f, B = f.bone, ch = this.ch;
-    this.track.sample(t, ch);
+  evalChannels(t, dt, ch) {
+    const f = this.f, B = f.bone;
     const pos = ch.pos || [0, 0, 0];
     const yaw = (ch.yaw ?? 0) * DEG, tilt = ch.tilt || [0, 0];
     const floor = ch.floor ?? 0;
@@ -269,7 +278,196 @@ export class Animator {
     // legs: foot controller + IK
     this.updateFeet(t, dt, ch);
     B.root.updateMatrixWorld(true);
+  }
 
+  // ---------------------------------------------------------------------------------------
+  // Mocap performance: clip instances placed in the world, optionally time-warped.
+  //   inst: { clip, from, to, w0, warp: [[w, c], ...] | speed, mirror, pos: [x, floorY, z], yaw (deg), fadeIn, fadeOut }
+  addClip(inst) {
+    const clip = typeof inst.clip === 'string' ? getClip(inst.clip) : inst.clip;
+    const o = { fadeIn: 0.08, fadeOut: 0.1, mirror: false, speed: 1, from: 0, ...inst, clip };
+    if (o.to === undefined) o.to = clip.dur;
+    if (!o.warp) o.warp = [[o.w0, o.from], [o.w0 + (o.to - o.from) / o.speed, o.to]];
+    o.w1 = o.warp[o.warp.length - 1][0];
+    o.yawQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), (o.yaw ?? 0) * DEG);
+    this.perf.push(o);
+    this.perf.sort((a, b) => a.w0 - b.w0);
+    return o;
+  }
+  clipTime(o, t) {
+    const W = o.warp;
+    if (t <= W[0][0]) return W[0][1];
+    for (let i = 0; i < W.length - 1; i++) {
+      if (t <= W[i + 1][0]) { const u = (t - W[i][0]) / Math.max(1e-6, W[i + 1][0] - W[i][0]); const e = W[i + 1][2] ? easeFn(W[i + 1][2])(u) : u; return W[i][1] + (W[i + 1][1] - W[i][1]) * e; }
+    }
+    return W[W.length - 1][1];
+  }
+  // world-space hips transform + local bone rotations of one instance at world time t
+  sampleInst(o, t, pose, outHips, outHipsQ) {
+    sampleClip(o.clip, this.clipTime(o, t), pose, o.mirror);
+    const L = this.legLen, c = o.clip;
+    let px = pose.pos.x, pz = pose.pos.z;
+    if (o.stride && o.stride !== 1) { const so = o.strideOrigin || [0, 0]; px = so[0] + (px - so[0]) * o.stride; pz = so[1] + (pz - so[1]) * o.stride; }
+    outHips.set(px * L, this.hipH + (pose.pos.y - c.standY) * L * (o.lift ?? 1), pz * L).applyQuaternion(o.yawQ);
+    outHips.x += o.pos[0]; outHips.y += o.pos[1]; outHips.z += o.pos[2];
+    // authored world offsets over time (skids, pushbacks, superhuman lifts): [[w, [dx,dy,dz], ease], ...]
+    if (o.offset) {
+      const K = o.offset;
+      let dx = 0, dy = 0, dz = 0;
+      if (t >= K[K.length - 1][0]) [dx, dy, dz] = K[K.length - 1][1];
+      else if (t > K[0][0]) {
+        for (let i = 0; i < K.length - 1; i++) if (t <= K[i + 1][0]) {
+          const u = (t - K[i][0]) / Math.max(1e-6, K[i + 1][0] - K[i][0]);
+          const e = easeFn(K[i + 1][2] || 'linear')(clamp01(u));
+          const a = K[i][1], b = K[i + 1][1];
+          dx = a[0] + (b[0] - a[0]) * e; dy = a[1] + (b[1] - a[1]) * e; dz = a[2] + (b[2] - a[2]) * e;
+          break;
+        }
+      } else [dx, dy, dz] = K[0][1];
+      outHips.x += dx; outHips.y += dy; outHips.z += dz;
+    }
+    outHipsQ.copy(o.yawQ).multiply(pose.q[0]);
+  }
+  mocapAt(t) {
+    const R = this.mRes;
+    R.w = 0;
+    let first = true;
+    for (const o of this.perf) {
+      if (t < o.w0 - o.fadeIn || t > o.w1 + o.fadeOut) continue;
+      const w = Math.min(o.fadeIn > 0 ? clamp01((t - (o.w0 - o.fadeIn)) / o.fadeIn) : 1, o.fadeOut > 0 ? clamp01((o.w1 + o.fadeOut - t) / o.fadeOut) : 1);
+      const wi = smoothstep(0, 1, w);
+      if (wi <= 0) continue;
+      if (first) {
+        this.sampleInst(o, t, this.mA, R.hips, R.hipsQ);
+        for (let k = 0; k < R.q.length; k++) R.q[k].copy(this.mA.q[k]);
+        R.contact = this.mA.contact;
+        R.w = wi;
+        R.floor = o.pos[1];
+        first = false;
+      } else {
+        // crossfade toward the later instance
+        const hp = tmpV.set(0, 0, 0), hq = tmpQ2;
+        this.sampleInst(o, t, this.mB, hp, hq);
+        const u = clamp01(wi);
+        for (let k = 0; k < R.q.length; k++) R.q[k].slerp(this.mB.q[k], u);
+        R.hips.lerp(hp, u); R.hipsQ.slerp(hq, u);
+        R.floor = R.floor + (o.pos[1] - R.floor) * u;
+        if (u > 0.5) R.contact = this.mB.contact;
+        R.w = Math.max(R.w, wi);
+      }
+    }
+    return R;
+  }
+
+  // Blend the mocap result over whatever the channel stage produced (or set it outright), then
+  // layer: hit springs, fingers/jaw, optional look-at, strike aim IK for hands and feet.
+  applyMocap(t, dt, ch, M) {
+    const B = this.f.bone, w = M.w, full = w >= 0.999;
+    // root follows the hips on the floor with the hips' heading; hips carry the pelvis tilt
+    _hv.set(0, 0, 1).applyQuaternion(M.hipsQ);
+    const heading = Math.atan2(_hv.x, _hv.z);
+    _yq.setFromAxisAngle(_up, heading);
+    const floor = M.floor ?? 0;
+    _hq.copy(_yq).invert().multiply(M.hipsQ);
+    if (full) {
+      B.root.position.set(M.hips.x, floor, M.hips.z);
+      B.root.quaternion.copy(_yq);
+      B.hips.position.set(0, M.hips.y - floor, 0);
+      B.hips.quaternion.copy(_hq);
+      for (let k = 1; k < MOCAP_BONES.length; k++) B[MOCAP_BONES[k]].quaternion.copy(M.q[k]);
+      this.yawQuat = this.yawQuat || new THREE.Quaternion();
+      this.yawQuat.copy(_yq);
+      this.rootQuat.copy(_yq);
+      this.groundPos = this.groundPos || new THREE.Vector3();
+      this.groundPos.set(M.hips.x, floor, M.hips.z);
+      // hit springs on top of the performance
+      const sp = this.springs;
+      if (dt > 0) for (const k in sp) {
+        const s = sp[k];
+        const n = Math.max(1, Math.ceil(dt / (1 / 240)));
+        for (let i = 0; i < n; i++) s.step(dt / n);
+        for (let i = 0; i < 3; i++) s.x[i] = clamp(s.x[i], -60, 60);
+      }
+      const addRot = (bone, s, scale = 1) => { if (Math.abs(s.x[0]) + Math.abs(s.x[1]) + Math.abs(s.x[2]) < 1e-3) return; quatXYZ([s.x[0] * scale, s.x[1] * scale, s.x[2] * scale], tmpQ); bone.quaternion.multiply(tmpQ); };
+      addRot(B.hips, sp.hips); addRot(B.spine, sp.spine); addRot(B.chest, sp.chest); addRot(B.neck, sp.head, 0.4); addRot(B.head, sp.head, 0.6);
+      for (const s of ['L', 'R']) {
+        const c = ch['fist' + s] ?? 1, sx = s === 'L' ? 1 : -1;
+        quatXYZ([-c * 85, 0, 0], B['fingers.' + s].quaternion);
+        quatXYZ([-c * 95, 0, 0], B['fingertips.' + s].quaternion);
+        quatXYZ([-30 - c * 25, 0, -sx * c * 30], B['thumb.' + s].quaternion);
+      }
+      quatXYZ([(ch.jaw ?? 0) * 22, 0, 0], B.jaw.quaternion);
+      // authored layers over the performance: additive bends, whole-body tilt about the pelvis
+      for (const [c, bn] of [['addHips', 'hips'], ['addSpine', 'spine'], ['addChest', 'chest'], ['addHead', 'head'], ['addNeck', 'neck']]) {
+        const a = ch[c];
+        if (a && (a[0] || a[1] || a[2])) B[bn].quaternion.multiply(quatXYZ(a, tmpQ));
+      }
+      const mt = ch.mTilt;
+      if (mt && (mt[0] || mt[1])) {
+        B.root.updateMatrixWorld(true);
+        const hw = B.hips.getWorldPosition(new THREE.Vector3());
+        const rt = new THREE.Quaternion().setFromEuler(tmpE.set(mt[0] * DEG, 0, mt[1] * DEG, 'YXZ'));
+        rt.premultiply(_yq).multiply(tmpQ2.copy(_yq).invert());
+        B.root.position.sub(hw).applyQuaternion(rt).add(hw);
+        B.root.quaternion.premultiply(rt);
+      }
+    } else {
+      // partial: blend the channel pose toward the performance in local space
+      tmpV.set(M.hips.x, floor, M.hips.z);
+      B.root.position.lerp(tmpV, w);
+      B.root.quaternion.slerp(_yq, w);
+      tmpV.set(0, M.hips.y - floor, 0);
+      B.hips.position.lerp(tmpV, w);
+      B.hips.quaternion.slerp(_hq, w);
+      for (let k = 1; k < MOCAP_BONES.length; k++) B[MOCAP_BONES[k]].quaternion.slerp(M.q[k], w);
+      this.rootQuat.copy(B.root.quaternion);
+    }
+    B.root.updateMatrixWorld(true);
+    // look toward the opponent (authored weight; the performance already carries most head motion)
+    const lookW = (ch.mlook ?? 0) * w;
+    if (lookW > 0.001 && this.opponent) this.lookAtTarget(this.lookTarget(ch.lookAt, tmpV), lookW);
+    // authored arm IK over the performance (blocks, grabs): mIKL / mIKR weights, targets in root space
+    for (const s of ['L', 'R']) {
+      const wk = (ch['mIK' + s] ?? 0) * w;
+      if (wk <= 0.001) continue;
+      const target = this.toWorld(ch['ikHand' + s] || [0, 1.2, 0.4], new THREE.Vector3());
+      const pl = ch['pole' + s] || [s === 'L' ? 0.6 : -0.6, -0.5, -0.8];
+      const pole = new THREE.Vector3(pl[0], pl[1], pl[2]).applyQuaternion(this.rootQuat);
+      solveTwoBone(B['upperarm.' + s], B['forearm.' + s], B['hand.' + s], target, pole, false, wk);
+    }
+    // strike correction: pull a fist / foot onto its target around contact
+    if (this.opponent) {
+      for (const s of ['L', 'R']) {
+        const a = (ch['aim' + s] ?? 0) * w;
+        if (a > 0.001) this.aimLimb(B['upperarm.' + s], B['forearm.' + s], B['hand.' + s], ch['aimAt' + s] || 'head', a, false);
+        const af = (ch['aimFoot' + s] ?? 0) * w;
+        if (af > 0.001) this.aimLimb(B['thigh.' + s], B['shin.' + s], B['foot.' + s], ch['aimFootAt' + s] || 'chest', af, true);
+      }
+    }
+    B.root.updateMatrixWorld(true);
+    this.lastMocap = true;
+  }
+
+  // IK the end of a limb toward an opponent point, bending in the limb's current plane
+  aimLimb(upper, lower, end, targetName, weight, isLeg) {
+    const s = upper.getWorldPosition(new THREE.Vector3());
+    const m = lower.getWorldPosition(new THREE.Vector3());
+    const e = end.getWorldPosition(new THREE.Vector3());
+    const target = e.clone().lerp(this.opponentPoint(targetName, new THREE.Vector3()), weight);
+    const mid = s.clone().add(e).multiplyScalar(0.5);
+    const pole = m.sub(mid);
+    if (pole.lengthSq() < 1e-6) pole.set(0, isLeg ? 0 : -1, isLeg ? 1 : 0).applyQuaternion(this.rootQuat);
+    solveTwoBone(upper, lower, end, target, pole.normalize(), isLeg, 1);
+  }
+
+  evaluate(t, dt) {
+    const f = this.f, B = f.bone, ch = this.ch;
+    this.track.sample(t, ch);
+    const M = this.perf.length ? this.mocapAt(t) : this.mRes;
+    if (!this.perf.length) M.w = 0;
+    if (M.w < 0.999) this.evalChannels(t, dt, ch);
+    if (M.w > 0.001) this.applyMocap(t, dt, ch, M);
+    else this.lastMocap = false;
     // bone world positions & velocities
     for (const b of f.rig.bones) {
       const p = this.bonePos[b.name];
@@ -281,6 +479,7 @@ export class Animator {
   }
 
   opponentPoint(name, out) {
+    if (Array.isArray(name)) return out.set(name[0], name[1], name[2]);
     const o = this.opponent;
     const map = { head: 'head', chest: 'chest', gut: 'spine', jaw: 'jaw', hips: 'hips', knee: 'shin.L' };
     const bn = map[name] || name;
