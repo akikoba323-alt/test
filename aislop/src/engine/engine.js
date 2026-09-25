@@ -90,6 +90,7 @@ export class Engine {
     const bg = new THREE.Color(S.bg || '#0b0b0d');
     gl.clear(slot.rt, bg.r, bg.g, bg.b, 1);
     const f = new Frame(this, S, slot, t, T);
+    globalThis.__scene = S;
     S.draw(f);
     if (S.hud !== false) {
       const ctx = f.ctx;
