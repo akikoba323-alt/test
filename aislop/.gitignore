@@ -6,3 +6,5 @@ out/
 src/lib/icondata.js
 __pycache__/
 deliver/video/*.tmp
+deliver/*.tmp
+deliver/*.x264pass*

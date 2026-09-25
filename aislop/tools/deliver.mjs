@@ -2,6 +2,7 @@
 //   node tools/deliver.mjs video   [--only 00,01]   1080p30 H.264 per chapter -> deliver/video/ (each file < 95 MB, long chapters split)
 //   node tools/deliver.mjs audio                    SE stem (FLAC + AAC) and subtitles -> deliver/audio/, deliver/
 //   node tools/deliver.mjs preview --voice n.mp3    720p previews with narration + SE, in parts under 27 MiB -> out/film/preview/
+//   node tools/deliver.mjs complete --voice n.mp3 [--h 720] [--size 95] [--out f.mp4]   the whole film with sound in ONE file of at most --size MB
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -78,6 +79,31 @@ if (cmd === 'video') {
     ff([...common, '-pass', '2', '-passlogfile', log, '-c:a', 'aac', '-b:a', '96k', '-movflags', '+faststart', dst]);
     console.log(`${path.basename(dst)}: ${D.toFixed(1)} s, ${kbps} kb/s, ${(fs.statSync(dst).size / 1048576).toFixed(1)} MiB`);
   }
+} else if (cmd === 'complete') {
+  // the finished film in ONE file: picture + narration + SFX, two-pass sized to a hard limit (GitHub: 100 MB per file, chat: 30 MiB)
+  const voice = args.voice;
+  const master = path.join(film, 'aislop_visual_1080p30.mp4');
+  const se = path.join(film, 'aislop_se.wav');
+  const H = Number(args.h || 720), W = Math.round(H * 16 / 9 / 2) * 2;
+  const limitMB = Number(args.size || 95), abr = Number(args.abr || 96);
+  const D = dur(master);
+  const kbps = Math.floor((limitMB * 1e6 * 8) / D / 1000 * 0.985) - abr;  // 1.5 % headroom for the container
+  const dst = path.resolve(args.out || `deliver/aislop_complete_${H}p.mp4`);
+  fs.mkdirSync(path.dirname(dst), { recursive: true });
+  const mono = args.mono === 'true';
+  const af = '[1:a]aresample=48000,aformat=channel_layouts=stereo,apad,asplit=2[v1][v2];' +
+    '[2:a]aresample=48000[s];[s][v2]sidechaincompress=threshold=0.03:ratio=3:attack=15:release=350[sd];' +
+    `[v1][sd]amix=inputs=2:duration=first:normalize=0,volume=4dB,alimiter=limit=0.84:attack=3:release=60${mono ? ',pan=mono|c0=0.5*c0+0.5*c1' : ''}[a]`;
+  const vf = `[0:v]hqdn3d=2:2:5:5,scale=${W}:${H}:flags=lanczos[v]`;
+  const common = ['-i', master, '-i', voice, '-i', se, '-filter_complex', `${af};${vf}`, '-map', '[v]', '-map', '[a]', '-t', D.toFixed(3),
+    '-c:v', 'libx264', '-preset', 'slow', '-profile:v', 'high', '-b:v', `${kbps}k`, '-pix_fmt', 'yuv420p', '-g', '120', ...BT709];
+  const log = dst + '.x264pass';
+  const t0 = Date.now();
+  ff([...common, '-pass', '1', '-passlogfile', log, '-c:a', 'aac', '-b:a', `${abr}k`, '-f', 'null', '-']);
+  ff([...common, '-pass', '2', '-passlogfile', log, '-c:a', 'aac', '-b:a', `${abr}k`, '-movflags', '+faststart', '-f', 'mp4', dst + '.tmp']);
+  fs.renameSync(dst + '.tmp', dst);
+  for (const f of fs.readdirSync(path.dirname(dst))) if (f.startsWith(path.basename(log))) fs.unlinkSync(path.join(path.dirname(dst), f));
+  console.log(`${path.basename(dst)}: ${W}x${H}, ${D.toFixed(2)} s, video ${kbps} kb/s, ${MB(dst).toFixed(1)} MB (${(fs.statSync(dst).size / 1048576).toFixed(1)} MiB) in ${((Date.now() - t0) / 60000).toFixed(1)} min`);
 } else {
-  console.log('usage: node tools/deliver.mjs video|audio|preview');
+  console.log('usage: node tools/deliver.mjs video|audio|preview|complete');
 }
