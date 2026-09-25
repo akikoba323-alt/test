@@ -5,3 +5,4 @@ out/
 *.log
 src/lib/icondata.js
 __pycache__/
+deliver/video/*.tmp

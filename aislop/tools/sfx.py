@@ -582,6 +582,13 @@ def main():
         if snd and s['start'] > 0.5:
             events.append((s['start'], snd, g, dict(kw, **({'seed': int(s['start'] * 10)} if snd == 'glitch' else {})), 'center', 'trans:' + s['id']))
 
+    # chapter cards: the "CHAPTER NN" line decodes with a little burst of keystrokes
+    try:
+        for c in json.load(open('out/film/chapters.json')):
+            if c['n'] != '00': events.append((c['t0'] + 0.05, 'type', 0.16, {'n': 7, 'span': 0.45}, 'start', f"chapter:{c['n']}"))
+    except FileNotFoundError:
+        pass
+
     # hand-picked beats
     times = resolve_cues([[c[0], c[1]] for c in CUES])
     for c, t in zip(CUES, times):
