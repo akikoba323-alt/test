@@ -8,22 +8,24 @@
 
 | ファイル | 開始 | 終了 |
 |---|---|---|
-| ch00_open.mp4（オープニング） | 0:00.00 | 0:32.17 |
-| ch01_definition.mp4（定義） | 0:32.17 | 1:31.97 |
-| ch02_scale.mp4（規模） | 1:31.97 | 2:17.05 |
+| ch00_open.mp4（オープニング） | 0:00.00 | 0:32.16 |
+| ch01_definition.mp4（定義） | 0:32.16 | 1:31.96 |
+| ch02_scale.mp4（規模） | 1:31.96 | 2:17.05 |
 | ch03_news.mp4（ニュース） | 2:17.05 | 2:52.20 |
 | ch04_appearance.mp4（見た目） | 2:52.20 | 3:26.29 |
 | ch05_video.mp4（動画） | 3:26.29 | 4:24.98 |
-| ch06_economics.mp4（経済） | 4:24.98 | 5:45.30 |
-| ch07_music.mp4（音楽） | 5:45.30 | 6:57.82 |
-| ch08_books.mp4（本） | 6:57.82 | 8:17.36 |
+| ch06_economics_a.mp4 / ch06_economics_b.mp4（経済） | 4:24.98 | 5:45.30 |
+| ch07_music_a.mp4 / ch07_music_b.mp4（音楽） | 5:45.30 | 6:57.82 |
+| ch08_books_a.mp4 / ch08_books_b.mp4（本） | 6:57.82 | 8:17.36 |
 | ch09_court.mp4（法廷） | 8:17.36 | 9:07.84 |
 | ch10_science.mp4（科学） | 9:07.84 | 10:13.36 |
-| ch11_model_collapse.mp4（モデル崩壊） | 10:13.36 | 11:30.71 |
+| ch11_model_collapse_a.mp4 / ch11_model_collapse_b.mp4（モデル崩壊） | 10:13.36 | 11:30.71 |
 | ch12_doubt.mp4（疑い） | 11:30.71 | 12:30.55 |
-| ch13_verification_cost.mp4（確認コスト） | 12:30.55 | 13:54.51 |
-| ch14_trust.mp4（信頼） | 13:54.51 | 15:13.27 |
-| ch15_epilogue.mp4（結び） | 15:13.27 | 16:51.16 |
+| ch13_verification_cost_a.mp4 / ch13_verification_cost_b.mp4（確認コスト） | 12:30.55 | 13:54.51 |
+| ch14_trust_a.mp4 / ch14_trust_b.mp4（信頼） | 13:54.51 | 15:13.27 |
+| ch15_epilogue_a.mp4 / ch15_epilogue_b.mp4（結び） | 15:13.27 | 16:51.16 |
+
+合計 23ファイル / 30,335フレーム / 777MB。
 
 ### 1本のファイルにつなげたい場合
 
