@@ -4,3 +4,4 @@ fonts/*.ttf
 out/
 *.log
 src/lib/icondata.js
+__pycache__/

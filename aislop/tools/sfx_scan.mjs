@@ -38,7 +38,9 @@ const res = await page.evaluate(async (fps) => {
   const N = Math.ceil(eng.duration * fps);
   for (let i = 0; i < N; i++) { T = i / fps; eng.render(T); if (i % 600 === 0) await new Promise((r) => setTimeout(r, 0)); }
   globalThis.__onset = null;
-  const onsets = [...seen.values()].filter((o) => o.n >= 3 && o.tmin < o.a && o.tmax >= o.a).map(({ scene, a, d, kind, T }) => ({ scene, T: +T.toFixed(3), a: +a.toFixed(3), d: +d.toFixed(3), kind }));
+  // an onset counts when it is crossed on screen: either seen before and after it, or first called right as it starts
+  // (calls guarded by "if (t > a)" only begin once the onset has passed)
+  const onsets = [...seen.values()].filter((o) => o.n >= 2 && o.tmax >= o.a && o.tmin - o.a <= 1.5 / fps).map(({ scene, a, d, kind, T }) => ({ scene, T: +T.toFixed(3), a: +a.toFixed(3), d: +d.toFixed(3), kind }));
   onsets.sort((x, y) => x.T - y.T);
   const scenes = eng.scenes.map((s) => ({ id: s.id, start: +s.start.toFixed(3), end: +s.end.toFixed(3), trans: s.trans?.type || 'cut', td: s.trans?.d || 0 }));
   return { duration: eng.duration, onsets, scenes };

@@ -120,7 +120,7 @@ def s_tick(pitch=1.0, pan=0.0):
 def s_click(pan=0.0):
     t = T(0.06)
     x = bp(noise(len(t)), 1800, 7000) * np.exp(-t / 0.0028)
-    x += np.sin(2 * np.pi * 190 * t) * np.exp(-t / 0.012) * 0.6
+    x += np.sin(2 * np.pi * 190 * t) * np.exp(-t / 0.008) * 0.25
     t2 = T(0.03)
     y = bp(noise(len(t2)), 2000, 8000) * np.exp(-t2 / 0.002) * 0.45
     out = np.zeros(len(t) + int(0.045 * SR)); out[:len(t)] += x; out[int(0.045 * SR):int(0.045 * SR) + len(t2)] += y
@@ -170,7 +170,7 @@ def s_glitch(d=0.35, seed=0):
         y = fade(y, 0.001, 0.002)
         out[i:i + seg] += stereo(y, r.uniform(-0.7, 0.7))
         i += seg
-    out[:, 0] = hp(out[:, 0], 180); out[:, 1] = hp(out[:, 1], 180)
+    for c in (0, 1): out[:, c] = lp(hp(out[:, c], 180), 7000)
     u = np.linspace(0, 1, n)[:, None]
     return norm(out * (1 - u ** 3))
 
@@ -189,24 +189,25 @@ def s_goo():
     x = np.sin(chirp_phase(f)) * np.exp(-t / 0.25)
     n = len(t)
     squelch = bands_sweep(n, 1600, 260, 10, 0.35) * np.exp(-t / 0.14)
-    x = x + squelch * 0.8
+    x = x * 0.7 + squelch * 1.6
     return verb(stereo(fade(norm(x), 0.004, 0.05), 0, 0.3), 0.2)
 
 def s_impact(size=1.0, bright=1.0):
     t = T(1.4 * size)
     f = 38 + 30 * np.exp(-t / 0.08)
     sub = np.sin(chirp_phase(f)) * np.exp(-t / (0.45 * size))
-    punch = bp(noise(len(t)), 120, 1400) * np.exp(-t / 0.05)
+    body = np.tanh(np.sin(chirp_phase(95 + 80 * np.exp(-t / 0.03))) * 2.5) * np.exp(-t / 0.11)
+    punch = bp(noise(len(t)), 150, 1600) * np.exp(-t / 0.06)
     crack = hp(noise(len(t)), 3500) * np.exp(-t / 0.009) * 0.6 * bright
-    x = sub * 1.0 + punch * 0.7 + crack
+    x = sub * 0.8 + body * 0.55 + punch * 2.2 + crack
     return verb(stereo(fade(norm(np.tanh(x * 1.6)), 0.001, 0.08), 0, 0.4), 0.35, IR_HALL)
 
 def s_stamp(pan=0.0):
     t = T(0.35)
     f = 55 + 70 * np.exp(-t / 0.03)
-    x = np.sin(chirp_phase(f)) * np.exp(-t / 0.07)
-    x += lp(noise(len(t)), 1500) * np.exp(-t / 0.018) * 0.9
-    x += bp(noise(len(t)), 2500, 6000) * np.exp(-t / 0.004) * 0.3
+    x = np.tanh(np.sin(chirp_phase(f)) * 2) * np.exp(-t / 0.06) * 0.7
+    x += bp(noise(len(t)), 250, 1800) * np.exp(-t / 0.022) * 2.6
+    x += bp(noise(len(t)), 2500, 6000) * np.exp(-t / 0.004) * 0.8
     return verb(stereo(fade(norm(np.tanh(x * 1.4)), 0.0005, 0.04), pan, 0.2), 0.18)
 
 def s_riser(d=1.5):
@@ -316,8 +317,8 @@ def s_gavel():
     out = np.zeros(int(0.9 * SR))
     for k in range(2):
         t = T(0.3)
-        y = sum(bp(noise(len(t)), f / 1.08, f * 1.08, 2) * np.exp(-t / tau) for f, tau in ((420, 0.06), (760, 0.045), (1150, 0.03)))
-        y += np.sin(2 * np.pi * 95 * t) * np.exp(-t / 0.05) * 0.8
+        y = sum(bp(noise(len(t)), f / 1.04, f * 1.04, 2) * np.exp(-t / tau) * g for f, tau, g in ((420, 0.07, 3.0), (760, 0.05, 2.6), (1150, 0.035, 2.0), (2300, 0.015, 1.2)))
+        y += np.sin(2 * np.pi * 110 * t) * np.exp(-t / 0.03) * 0.25
         i = int(k * 0.26 * SR); out[i:i + len(t)] += y * (1 if k else 0.7)
     return verb(stereo(norm(out), 0, 0.2), 0.3, IR_HALL)
 
@@ -356,6 +357,7 @@ def s_boom():
     t = T(3.0)
     f = 32 + 20 * np.exp(-t / 0.2)
     x = np.sin(chirp_phase(f)) * np.exp(-t / 0.9) + lp(noise(len(t)), 220) * np.exp(-t / 0.35) * 0.5
+    x += bp(noise(len(t)), 150, 700) * np.exp(-t / 0.25) * 1.4 + np.tanh(np.sin(chirp_phase(f * 3)) * 2) * np.exp(-t / 0.3) * 0.25
     return verb(stereo(fade(norm(np.tanh(x * 1.3)), 0.004, 0.2), 0, 0.5), 0.45, IR_HALL)
 
 def s_boing():
@@ -414,17 +416,28 @@ TRANS = {  # transition type -> (sound, gain, kwargs); the sound is centred on t
     'dissolve': ('swish', 0.12, {'d': 0.8, 'f0': 300, 'f1': 1200}), 'fade': (None, 0, {}), 'cut': (None, 0, {}),
 }
 
+# onsets that mean something specific in their scene: (scene, onset kind, (cue id, phrase, from, to) or None, sound, gain, kwargs)
+OVERRIDES = [
+    ('S40', 'pulse', None, 'stamp', 0.55, {}),                         # 収益化 / 禁止 stamps on the policy sheets
+    ('S48', 'outBack', (84, '五冊', -0.4, 1.4), 'stamp', 0.42, {}),    # 削除 x5 on Jane Friedman's books
+    ('S57', 'pulse', None, 'click', 0.35, {}),                          # Ctrl+C / Ctrl+V
+    ('S89', 'pulse', None, None, 0, {}),                                # sticker thumps (curated stamps cover them)
+    ('S96', 'pulse', None, 'tick', 0.06, {'pitch': 1.35}),              # the generate button spewing a card every 0.16 s
+    ('S02', 'pulse', None, 'swish', 0.1, {'d': 0.16, 'f0': 1500, 'f1': 7000}),  # cards flipping over
+]
+
 # (sentence id, phrase or None, offset seconds, sound, gain, kwargs)
 CUES = [
     # 00 open
-    (0, 'あなた', -0.1, 'drone', 0.28, {'d': 9.0, 'f': 49.0, 'bright': 380}),
+    (0, 'あなた', -0.1, 'drone', 0.16, {'d': 9.0, 'f': 49.0, 'bright': 380}),
     (0, '本当に', -0.15, 'impact', 0.3, {'size': 0.6, 'bright': 0.3}),
     (2, '限りません', -0.1, 'glitch', 0.22, {'d': 0.2, 'seed': 5}),
     (4, 'アルゴリズム', -1.4, 'whoosh', 0.42, {'d': 1.3, 'f0': 3000, 'f1': 200, 'p0': 0.3, 'p1': -0.3}),
     # 01 definition
     (5, 'これが', -0.2, 'swell', 0.5, {'d': 1.0}),
-    (5, 'slop', -0.05, 'impact', 0.55, {'size': 1.1}),
-    (7, 'slop', -0.25, 'stamp', 0.5, {}),
+    (5, 'これが', -0.2, 'impact', 0.55, {'size': 1.1}),
+    (7, '二千二十五', 1.0, 'stamp', 0.5, {}),
+    (7, '二千二十五', 1.05, 'chime', 0.18, {'f': 1318.5}),
     (10, '六本', -0.85, 'boing', 0.3, {}),
     (14, '瞬間', -0.15, 'stamp', 0.4, {}),
     (16, '責任者', -0.2, 'boom', 0.35, {}),
@@ -432,7 +445,7 @@ CUES = [
     (17, 'そして', -0.1, 'impact', 0.45, {'size': 0.9}),
     (19, '十', -0.4, 'ding', 0.3, {}),
     (22, '三分の一', -0.4, 'stamp', 0.45, {}),
-    (23, '人間の文章', -0.6, 'ocean', 0.32, {'d': 11.5}),
+    (23, '人間の文章', -0.6, 'ocean', 0.18, {'d': 11.5}),
     # 03 news
     (25, '三千七百', -0.2, 'impact', 0.35, {'size': 0.6}),
     (28, 'AIが一日', -0.3, 'type', 0.3, {'n': 14, 'span': 2.2}),
@@ -445,15 +458,13 @@ CUES = [
     # 05 video
     (46, '二十', -0.2, 'stamp', 0.35, {}),
     (50, '二万ドル', -0.3, 'cash', 0.45, {}),
-    (51, '内容は', -0.5, 'factory', 0.34, {'d': 13.0}),
+    (51, '内容は', -0.5, 'factory', 0.2, {'d': 13.0}),
     (55, '工場', -0.1, 'impact', 0.6, {'size': 1.2}),
     # 06 economics
     (58, '撮り直す', -0.3, 'error', 0.22, {}),
     (61, '当たれば', -0.3, 'chip', 0.35, {'kind': 'coin'}),
     (64, '三秒', -0.3, 'tick', 0.4, {}),
     (67, '床を', -0.3, 'whump', 0.4, {}),
-    (69, '明記', -0.4, 'stamp', 0.5, {}),
-    (70, '禁止', -0.3, 'stamp', 0.55, {}),
     (71, '工場', -0.3, 'scan', 0.35, {}),
     # 07 music
     (73, '五十', -0.3, 'impact', 0.4, {'size': 0.8}),
@@ -461,9 +472,8 @@ CUES = [
     (76, '八十五', -0.3, 'error', 0.25, {}),
     (77, 'ゲーム', -0.4, 'chip', 0.4, {'kind': 'coin'}),
     (78, '削除', -0.2, 'whump', 0.45, {}),
-    (81, '誰も聴いていない', -0.4, 'drone', 0.26, {'d': 10.0, 'f': 41.2, 'bright': 300}),
+    (81, '誰も聴いていない', -0.4, 'drone', 0.16, {'d': 10.0, 'f': 41.2, 'bright': 300}),
     # 08 books
-    (84, '削除', -0.2, 'stamp', 0.5, {}),
     (88, '簡単', -0.15, 'pop', 0.5, {'pitch': 0.7}),
     (89, '激減', -0.4, 'whoosh', 0.4, {'d': 0.9, 'f0': 3000, 'f1': 250}),
     (90, '狂気', -0.3, 'boom', 0.3, {}),
@@ -478,20 +488,21 @@ CUES = [
     # 10 science
     (108, '存在しない引用', -0.3, 'stamp', 0.4, {}),
     (110, '急増', -0.4, 'riser', 0.3, {'d': 0.8}),
-    (115, '幽霊', -0.8, 'drone', 0.3, {'d': 8.0, 'f': 58.3, 'bright': 700}),
+    (115, '幽霊', -0.8, 'drone', 0.18, {'d': 8.0, 'f': 58.3, 'bright': 700}),
     (116, '本物', -0.2, 'impact', 0.4, {'size': 0.8}),
     # 11 model collapse
-    (117, 'SF', -0.3, 'impact', 0.55, {'size': 1.2}),
+    (117, 'そして', 0.1, 'impact', 0.55, {'size': 1.2}),
+    (117, 'そして', 0.1, 'drone', 0.22, {'d': 4.5, 'f': 43.65, 'bright': 380}),
     (120, '食べる', -0.2, 'goo', 0.3, {}),
     (122, '食べる', -0.2, 'goo', 0.3, {}),
-    (124, 'モデル崩壊', -0.4, 'drone', 0.3, {'d': 12.0, 'f': 43.65, 'bright': 420}),
+    (124, 'モデル崩壊', -0.4, 'drone', 0.18, {'d': 12.0, 'f': 43.65, 'bright': 420}),
     (125, 'ジャックラビット', -0.2, 'boing', 0.4, {}),
     (127, '笑える', -0.1, 'pop', 0.35, {'pitch': 1.2}),
     (128, '怖い', -0.2, 'boom', 0.5, {}),
-    (133, '世界そのもの', -0.4, 'drone', 0.3, {'d': 9.0, 'f': 36.7, 'bright': 350}),
+    (133, '世界そのもの', -0.4, 'drone', 0.18, {'d': 9.0, 'f': 36.7, 'bright': 350}),
     # 12 doubt
     (135, '本物まで', -0.2, 'boom', 0.35, {}),
-    (137, '十三', -0.3, 'stamp', 0.4, {}),
+    (137, '十三', -0.5, 'stamp', 0.4, {}),
     (138, '四十', -0.3, 'error', 0.3, {}),
     (140, 'AIでしょ', -0.3, 'glitch', 0.2, {'d': 0.25, 'seed': 9}),
     (146, 'AI以前', -0.2, 'swish', 0.3, {}),
@@ -502,8 +513,8 @@ CUES = [
     (153, '一時間', -0.3, 'tick', 0.35, {}),
     (154, '百円', -0.3, 'coin', 0.35, {}),
     (155, '自動化', -0.3, 'type', 0.3, {'n': 22, 'span': 1.8}),
-    (156, '核心', -0.1, 'impact', 0.6, {'size': 1.2}),
-    (156, '核心', -0.1, 'swell', 0.4, {'d': 1.2}),
+    (156, 'ここが', -0.1, 'impact', 0.6, {'size': 1.2}),
+    (156, 'ここが', -0.1, 'swell', 0.4, {'d': 1.2}),
     (158, '食べて', -0.3, 'goo', 0.3, {}),
     (163, '勝ち', -0.2, 'stamp', 0.4, {}),
     (166, '連打', -0.4, 'type', 0.4, {'n': 18, 'span': 1.2}),
@@ -527,7 +538,7 @@ CUES = [
     (193, 'むしろ', -0.0, 'pop', 0.45, {'pitch': 0.75}),
     (194, 'そこそこ', -0.2, 'chip', 0.3, {'kind': 'beep'}),
     (194, 'ものすごい量', -0.4, 'riser', 0.35, {'d': 1.2}),
-    (195, '百万', -0.3, 'impact', 0.45, {'size': 0.9}),
+    (195, '百万', 0.05, 'impact', 0.45, {'size': 0.9}),
     (196, '怖い', -0.5, 'boom', 0.6, {}),
     (196, '怖い', -0.5, 'drone', 0.3, {'d': 2.6, 'f': 41.2, 'bright': 600}),
     (197, 'ちょっと', -0.1, 'boing', 0.35, {}),
@@ -558,6 +569,7 @@ def main():
     ap.add_argument('--onsets', default='out/sfx/onsets.json')
     ap.add_argument('--out', default='out/film/aislop_se.wav')
     ap.add_argument('--list', default='out/sfx/events.json')
+    ap.add_argument('--level', type=float, default=-31.0, help='median short-term RMS of the active parts, dBFS (narration speaks at about -23)')
     a = ap.parse_args()
     scan = json.load(open(a.onsets))
     dur = scan['duration'] + 1.0
@@ -581,11 +593,28 @@ def main():
     def near(t, w):
         i = np.searchsorted(special, t)
         return any(abs(special[j] - t) < w for j in (i - 1, i) if 0 <= j < len(special))
-    last = {'pop': -9, 'tick': -9, 'click': -9}
+    last = {'pop': -9, 'tick': -9, 'click': -9, 'stamp': -9}
     per_sec = {}
+    ov_times = resolve_cues([[w[0], w[1]] for (_, _, w, *_r) in OVERRIDES if w])
+    ov = []
+    k = 0
+    for (sc, kind, w, snd, g, kw) in OVERRIDES:
+        win = None
+        if w: win = (ov_times[k] + w[2], ov_times[k] + w[3]); k += 1
+        ov.append((sc, kind, win, snd, g, kw))
+    def override(o):
+        for (sc, kind, win, snd, g, kw) in ov:
+            if o['scene'] == sc and o['kind'] == kind and (win is None or win[0] <= o['T'] <= win[1]):
+                return (snd, g, kw)
+        return False
     for o in scan['onsets']:
         t, kind, d = o['T'], o['kind'], o['d']
         if t < 0.3: continue
+        hit = override(o)
+        if hit is not False:
+            snd, g, kw = hit
+            if snd: events.append((t, snd, g, kw, 'start', f'onset*:{o["scene"]}:{kind}'))
+            continue
         if kind == 'outBack':
             snd, g, gap, kw = 'pop', 0.16 + 0.14 * min(1.0, d / 0.5), 0.07, {'pitch': float(np.clip(1.35 - d, 0.7, 1.3) * RNG.uniform(0.92, 1.08)), 'pan': float(RNG.uniform(-0.35, 0.35))}
         elif kind == 'pulse':
@@ -597,7 +626,7 @@ def main():
         if t - last[snd] < gap or near(t, 0.12): continue
         sec = int(t * 2)
         per_sec[sec] = per_sec.get(sec, 0) + 1
-        if per_sec[sec] > 5: continue
+        if per_sec[sec] > 3: continue
         last[snd] = t
         events.append((t, snd, g, kw, 'start', f'onset:{o["scene"]}:{kind}'))
 
@@ -610,15 +639,30 @@ def main():
             if snd not in ('pop', 'tick', 'click', 'glitch'): cache[key] = y
         else:
             y = cache[key]
-        i = int(round((t - (len(y) / SR if align == 'end' else 0)) * SR))
+        lead = 0.0
+        if align == 'end': lead = len(y) / SR
+        elif align == 'center':  # transitions: put the loudest part of the sound on the cut
+            dd = kw.get('d', {'whoosh': 0.6, 'swish': 0.28, 'glitch': 0.35}.get(snd, 0))
+            lead = {'whoosh': 0.62 * dd, 'swish': 0.7 * dd, 'glitch': 0.5 * dd, 'pixel': 0.07, 'goo': 0.15, 'whump': 0.05}.get(snd, 0.0)
+        i = int(round((t - lead) * SR))
         if i < 0: y = y[-i:]; i = 0
         m = min(len(y), len(mix) - i)
         mix[i:i + m] += y[:m] * g
 
     mix = mix[:int(dur * SR)]
-    # gentle bus limiting then normalise to about -3 dBFS
+    # gentle bus limiting, then set the level against the narration (about -23 LUFS): the stem is meant to be
+    # dropped in at 0 dB and sit roughly 7 LU under the voice
     peak = np.max(np.abs(mix)) or 1
     mix = np.tanh(mix / peak * 1.4) / np.tanh(1.4) * 0.7
+    win = int(0.42 * SR)
+    m = mix.mean(1) * np.sqrt(2)
+    n = len(m) // win
+    rms = 20 * np.log10(np.sqrt((m[:n * win].reshape(n, win) ** 2).mean(1)) + 1e-9)
+    act = rms[rms > rms.max() - 45]
+    med = float(np.median(act))
+    gain = 10 ** ((a.level - med) / 20)
+    mix *= min(gain, 0.97 / np.max(np.abs(mix)))
+    print(f'median active RMS {med:.1f} dB -> {a.level:.1f} dB (x{gain:.2f}), peak {20 * np.log10(np.max(np.abs(mix))):.1f} dBFS')
     sf.write(a.out, mix.astype(np.float32), SR, subtype='PCM_24')
     json.dump([{'t': round(t, 3), 'sound': snd, 'gain': g, 'why': why} for (t, snd, g, kw, align, why) in events], open(a.list, 'w'), ensure_ascii=False, indent=0)
     kinds = {}
