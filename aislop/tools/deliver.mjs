@@ -34,6 +34,7 @@ if (cmd === 'video') {
     // x264 at CRF 20 with a 10 Mb/s ceiling: roughly 6-9 Mb/s for this material. Split long chapters so every file stays under the limit.
     const parts = Math.max(1, Math.ceil((D * 10.5) / 8 / LIMIT));
     const frames = Math.round(D * 30), per = Math.ceil(frames / parts);
+    const done = [];  // all parts of a chapter appear together, once every part is complete
     for (let k = 0; k < parts; k++) {
       const a = k * per, b = Math.min(frames, a + per);
       const name = parts > 1 ? `${base}_${'abcdefgh'[k]}.mp4` : `${base}.mp4`;
@@ -41,9 +42,10 @@ if (cmd === 'video') {
       // encode under a temporary name and rename when complete, so a half-written file is never picked up
       ff(['-i', src, '-vf', `trim=start_frame=${a}:end_frame=${b},setpts=PTS-STARTPTS`, '-an', '-c:v', 'libx264', '-preset', 'slow', '-crf', '20', '-maxrate', '10M', '-bufsize', '20M',
         '-pix_fmt', 'yuv420p', '-g', '60', ...BT709, '-movflags', '+faststart', '-f', 'mp4', dst + '.tmp']);
-      fs.renameSync(dst + '.tmp', dst);
-      console.log(`ch${c.n}: ${name} ${(b - a)} frames, ${MB(dst).toFixed(1)} MB`);
+      done.push(dst);
+      console.log(`ch${c.n}: ${name} ${(b - a)} frames, ${MB(dst + '.tmp').toFixed(1)} MB`);
     }
+    for (const dst of done) fs.renameSync(dst + '.tmp', dst);
   }
 } else if (cmd === 'audio') {
   const dir = path.join(out, 'audio');
